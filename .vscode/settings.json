@@ -1,0 +1,8 @@
+{
+    "zencoder.enableRepoIndexing": true,
+    "editor.hover.enabled": false,
+    "editor.parameterHints.enabled": false,
+    "editor.parameterHints.cycle": false,
+    "editor.wordWrap": "off",
+    "editor.hover.delay": 10000
+}
