@@ -1,5 +1,5 @@
+
 import 'package:flutter/material.dart';
-import 'package:integra_date/pages/swipe_page.dart' as swipe_page;
 
 class BannerView extends StatelessWidget {
   BannerView({
@@ -9,15 +9,17 @@ class BannerView extends StatelessWidget {
     required this.isLoading,
     required this.initialOffset,
     required this.onBannerTap,
+    this.bannerH = 80,
   }); 
   
-  final scrollController;
+  final ScrollController scrollController;
   final Future<List<Map<dynamic, dynamic>>> profileData;
   final bool isLoading;
-  final initialOffset;
+  final double initialOffset;
   final Function(int, int?) onBannerTap;  // Callback to switch pages when the banner is clicked
 
-  static const double bannerHeight = 80;
+  static double bannerHeight = 80;
+  final double bannerH;
 
   void _showLargeProfilePicture(BuildContext context, String imagePath) {  // Display profile picture over screen
     showDialog(
@@ -49,14 +51,7 @@ class BannerView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (scrollController.hasClients && scrollController.offset != initialOffset) {
-        scrollController.jumpTo(initialOffset.clamp(
-          0.0, scrollController.position.maxScrollExtent
-        ));
-      }
-    });
-
+    
     return FutureBuilder<List<Map<dynamic, dynamic>>>(
       future: profileData,
       builder: (context, snapshot) {
@@ -68,6 +63,13 @@ class BannerView extends StatelessWidget {
           return const Center(child: Text('No profiles available'));
         }
 
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (scrollController.hasClients && scrollController.offset != initialOffset) {
+            scrollController.jumpTo(initialOffset.clamp(
+                0.0, scrollController.position.maxScrollExtent));
+          }
+        });
+        
         // The profiles list starts out as a Future<List<Map<dynamic, dynamic>>>> type so it can be called from the database, 
         // and is used as a List<Map<dynamic, dynamic>> type, so the Future builder is required to wait on the async database call.
         // Then it can be used as a List<Map<dynamic, dynamic>> type. If this is still necessary later, I can place it in a widget 
@@ -95,7 +97,7 @@ class BannerView extends StatelessWidget {
                 borderRadius: BorderRadius.circular(10), // Match ink's borderRadius to avoid draing outside of border
               
                 child: Ink(  // each banner is an ink container
-                  height: bannerHeight,
+                  height: bannerH,
                   decoration: BoxDecoration(
                     color: Color(0x50FFFFFF),
                     borderRadius: BorderRadius.circular(10),
@@ -130,10 +132,10 @@ class BannerView extends StatelessWidget {
                                 children: [
                                   Text(
                                     profiles[index]['name'], // Title (e.g., Entry name)
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.white, // Ensure visibility on background
+                                    style: TextStyle(
+                                      // fontSize: 16,
+                                      // fontWeight: FontWeight.bold,
+                                      // color: Colors.white, // Ensure visibility on background
                                     ),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
@@ -147,8 +149,9 @@ class BannerView extends StatelessWidget {
                                       Text(
                                         profiles[index]['age'], // Example subtitle
                                         style: const TextStyle(
-                                          fontSize: 14,
-                                          color: Colors.white70,
+                                          fontStyle: FontStyle.italic
+                                          //fontSize: 14,
+                                          //color: Colors.white70,
                                         ),
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
@@ -157,8 +160,9 @@ class BannerView extends StatelessWidget {
                                       Text(
                                         profiles[index]['height'], // Example subtitle
                                         style: const TextStyle(
-                                          fontSize: 14,
-                                          color: Colors.white70,
+                                          fontStyle: FontStyle.italic
+                                          //fontSize: 14,
+                                          //color: Colors.white70,
                                         ),
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
@@ -170,10 +174,11 @@ class BannerView extends StatelessWidget {
                                             
                               Text(  // distance
                                 profiles[index]['distance'],
-                                style: const TextStyle(
-                                        fontSize: 14,
-                                        color: Colors.white70,
-                                      ),  
+                                style: TextStyle(
+                                  fontStyle: FontStyle.italic
+                                  //fontSize: 14,
+                                  //color: Colors.white70,
+                                ),  
                               ),
                             ],
                           ),
@@ -181,14 +186,17 @@ class BannerView extends StatelessWidget {
                       ),
 
                       Padding(  // save profile button
-                        padding: const EdgeInsets.only(right: 8.0),
+                        padding: EdgeInsets.only(right: 8.0),
                         child: TextButton(
                           onPressed: () {
                             
                           },
-                          child: const Text(
+                          
+                          child: Text(
                             'save',
-                            style: TextStyle(color: Colors.white),
+                            style: TextStyle(
+                              //color: Colors.white
+                            ),
                           ),
                         ),
                       ),

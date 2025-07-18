@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 
 class BoxView extends StatelessWidget {
@@ -7,24 +8,17 @@ class BoxView extends StatelessWidget {
     required this.profileData,
     required this.isLoading,
     required this.initialOffset,
-    required this.onBannerTap
+    required this.onBannerTap,
   });
 
-  final scrollController;
+  final ScrollController scrollController;
   final Future<List<Map<dynamic, dynamic>>> profileData;  
   final bool isLoading;
-  final initialOffset;
+  final double initialOffset;
   final Function(int, int?) onBannerTap;
 
   @override
   Widget build(BuildContext context) {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (scrollController.hasClients && scrollController.offset != initialOffset) {
-        scrollController.jumpTo(initialOffset.clamp(
-          0.0, scrollController.position.maxScrollExtent
-        ));
-      }
-    });
 
     return FutureBuilder<List<Map<dynamic, dynamic>>>(
       future: profileData,
@@ -36,8 +30,15 @@ class BoxView extends StatelessWidget {
         } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
           return const Center(child: Text('No profiles available'));
         }
-
+        
         final profiles = snapshot.data!;
+
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (scrollController.hasClients && scrollController.offset != initialOffset) {
+            scrollController.jumpTo(initialOffset.clamp(
+                0.0, scrollController.position.maxScrollExtent));
+          }
+        });
 
         return GridView.builder(
           controller: scrollController,
@@ -53,10 +54,10 @@ class BoxView extends StatelessWidget {
             }
             return InkWell(
               onTap: () {
-                onBannerTap(1, index);
+                onBannerTap(1, index);  // Go to the profile page (page index 1) and display the clicked profile (the passed index)
               },
 
-              onLongPress: null,  // ??
+              onLongPress: null,  // Do something cool here bro!
 
               child: Column(
                 children: [

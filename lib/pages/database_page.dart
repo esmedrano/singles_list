@@ -9,13 +9,11 @@ class DatabasePage extends StatefulWidget {
     required this.theme,
     required this.profileData,
     required this.onBannerTap,
-    //required this.onDataUpdated,
   });
 
   final ThemeData theme;
   final Future<List<Map<dynamic, dynamic>>> profileData;
   final Function(int, int?) onBannerTap; // Callback to switch pages
-  //final void Function(List<Map<dynamic, dynamic>>) onDataUpdated;
 
   @override
   State<DatabasePage> createState() => _DatabasePageState();
@@ -25,7 +23,7 @@ class _DatabasePageState extends State<DatabasePage> {
   final ScrollController _scrollController = ScrollController();
   bool isDisposed = false;
   bool isLoading = false;
-  bool isBannerView = true;  
+  bool isBannerView = true; 
   double listViewOffset = 0.0;
   double gridViewOffset = 0.0;
   int firstVisibleIndex = 0;
@@ -36,7 +34,6 @@ class _DatabasePageState extends State<DatabasePage> {
   void initState() {  // This function is called when the page is built for the first time
     super.initState();
     _scrollController.addListener(_onScroll);
-    // _fetchInitialEntries();
   }
 
   @override
@@ -50,16 +47,13 @@ class _DatabasePageState extends State<DatabasePage> {
     if (_scrollController.position.pixels == _scrollController.position.maxScrollExtent && !isLoading) {
       _loadMoreEntries();
     }
-    
-    if(_scrollController.hasClients) {
-      if (isBannerView) {
+
+    if(_scrollController.hasClients) {  // Calculate the offset to pass to the view when toggled
+      if (isBannerView) {  // In the banner view claculate the grid offset 
         firstVisibleIndex = (_scrollController.offset / banner_view.BannerView.bannerHeight).floor();
-        print('first ${firstVisibleIndex}');
         listViewOffset = _scrollController.offset;
-        print(listViewOffset);
         gridViewOffset = (firstVisibleIndex / 3 * gridItemHeight).ceil().toDouble();
-        print(gridViewOffset);
-      } else {
+      } else {  // In the grid view calculate the banner offset
         firstVisibleIndex = (_scrollController.offset / gridItemHeight).floor() * 3;  // This calculates the first item that is fully displayed on the grid view
         listViewOffset = firstVisibleIndex * banner_view.BannerView.bannerHeight;
         gridViewOffset = ((firstVisibleIndex / 3) * gridItemHeight).ceil().toDouble();
@@ -100,19 +94,30 @@ class _DatabasePageState extends State<DatabasePage> {
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
 
-    calculateGridHeight(context); 
+    calculateGridHeight(context);
 
     return Center(
       child: Column(
         children: [
           search_bar.DateSearch(theme: theme, onToggleViewMode: _toggleViewMode),  // Build search bar
       
-          // Text('Date Database'),
-          Expanded(  // everything in here takes as much room as it needs to build 
-        
-            child: isBannerView  // Build profile scroller
-              ? banner_view.BannerView(scrollController: _scrollController, profileData: widget.profileData, isLoading: isLoading, initialOffset: listViewOffset, onBannerTap: widget.onBannerTap)
-              : grid_view.BoxView(scrollController: _scrollController, profileData: widget.profileData, isLoading: isLoading, initialOffset: gridViewOffset, onBannerTap: widget.onBannerTap),
+          Expanded(  // Build profile scroller
+            child: isBannerView
+              ? banner_view.BannerView(
+                  scrollController: _scrollController, 
+                  profileData: widget.profileData, 
+                  isLoading: isLoading, 
+                  initialOffset: listViewOffset, 
+                  onBannerTap: widget.onBannerTap
+                )
+
+              : grid_view.BoxView(  // Does this get called again after the toggle is set to false after the first build
+                  scrollController: _scrollController, 
+                  profileData: widget.profileData, 
+                  isLoading: isLoading, 
+                  initialOffset: gridViewOffset, 
+                  onBannerTap: widget.onBannerTap,
+                ),
           ),
         ],
       ),

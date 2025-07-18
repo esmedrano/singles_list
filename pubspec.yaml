@@ -59,7 +59,15 @@ flutter:
   fonts:
     - family: Roboto
       fonts:
-        - asset: fonts/roboto/Roboto-Regular.ttf
+        - asset: fonts/Roboto-Regular.ttf
+
+    - family: Nunito
+      fonts:
+        - asset: fonts/Nunito-LightItalic.ttf
+          weight: 300
+        - asset: fonts/Nunito-Regular.ttf
+        - asset: fonts/Nunito-Black.ttf
+          weight: 900
 
 
   # The following line ensures that the Material Icons font is
