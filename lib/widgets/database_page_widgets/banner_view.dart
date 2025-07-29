@@ -1,8 +1,8 @@
-
 import 'package:flutter/material.dart';
+import 'package:integra_date/widgets/share_popup.dart';
 
 class BannerView extends StatelessWidget {
-  BannerView({
+  const BannerView({
     super.key,
     required this.scrollController,
     required this.profileData,
@@ -10,48 +10,18 @@ class BannerView extends StatelessWidget {
     required this.initialOffset,
     required this.onBannerTap,
     this.bannerH = 80,
-  }); 
-  
+  });
+
   final ScrollController scrollController;
   final Future<List<Map<dynamic, dynamic>>> profileData;
   final bool isLoading;
   final double initialOffset;
-  final Function(int, int?) onBannerTap;  // Callback to switch pages when the banner is clicked
-
-  static double bannerHeight = 80;
+  final Function(int, int?) onBannerTap;
   final double bannerH;
-
-  void _showLargeProfilePicture(BuildContext context, String imagePath) {  // Display profile picture over screen
-    showDialog(
-      context: context,
-      barrierDismissible: true,  // Dismiss when tapping outside
-      builder: (BuildContext context) {
-        return Dialog(
-          shape: CircleBorder(),
-          clipBehavior: Clip.hardEdge,
-          backgroundColor: Colors.transparent,
-
-          child: Center(
-            child: Container(
-              width: MediaQuery.of(context).size.width * 0.9, 
-              height: MediaQuery.of(context).size.height * 0.6, 
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(10),
-                image: DecorationImage(
-                  image: AssetImage(imagePath),
-                  fit: BoxFit.contain,  // Preserve aspect ratio
-                ),
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
+  static double bannerHeight = 80;
 
   @override
   Widget build(BuildContext context) {
-    
     return FutureBuilder<List<Map<dynamic, dynamic>>>(
       future: profileData,
       builder: (context, snapshot) {
@@ -63,150 +33,279 @@ class BannerView extends StatelessWidget {
           return const Center(child: Text('No profiles available'));
         }
 
+        final profiles = snapshot.data!;
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (scrollController.hasClients && scrollController.offset != initialOffset) {
-            scrollController.jumpTo(initialOffset.clamp(
-                0.0, scrollController.position.maxScrollExtent));
+            scrollController.jumpTo(initialOffset.clamp(0.0, scrollController.position.maxScrollExtent));
           }
         });
-        
-        // The profiles list starts out as a Future<List<Map<dynamic, dynamic>>>> type so it can be called from the database, 
-        // and is used as a List<Map<dynamic, dynamic>> type, so the Future builder is required to wait on the async database call.
-        // Then it can be used as a List<Map<dynamic, dynamic>> type. If this is still necessary later, I can place it in a widget 
-        // to avoid the rewrites found in other files. 
-
-        final profiles = snapshot.data!;  
 
         return ListView.builder(
+          padding: EdgeInsets.only(top: 30),
           controller: scrollController,
           itemCount: profiles.length + (isLoading ? 1 : 0),
           itemBuilder: (context, index) {
             if (index == profiles.length) {
-              return Center(child: CircularProgressIndicator());
+              return const Center(child: CircularProgressIndicator());
             }
-            return Padding(  // build a banner at the next index
-              padding: EdgeInsets.only(top: 10, left: 10, right: 10),
-
-              child: InkWell(  // Animated, clickable container
-                onTap: () {  // Change to the profile page with the clicked profile
-                  onBannerTap(1, index);
-                },
-                
-                onLongPress: null,  // I could do something cool here
-                
-                borderRadius: BorderRadius.circular(10), // Match ink's borderRadius to avoid draing outside of border
-              
-                child: Ink(  // each banner is an ink container
-                  height: bannerH,
-                  decoration: BoxDecoration(
-                    color: Color(0x50FFFFFF),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                          
-                  child: Row(children: [
-                    Padding(  // Circular profile picture
-                        padding: const EdgeInsets.only(left: 15.0, right: 15.0),
-
-                        child: InkWell(  // Clickable profile picture
-                          onTap: () {
-                            _showLargeProfilePicture(context, profiles[index]['profilePic']);
-                          },
-                          borderRadius: BorderRadius.circular(24),
-                          child: CircleAvatar(
-                            radius: 24,
-                            backgroundImage: AssetImage(profiles[index]['profilePic']),
-                            backgroundColor: Colors.grey,
-                          ),
-                        ),
-                      ),
-
-                      Expanded(  // Stacked text
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 5),
-                          child: Row(  // all text
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Column(  // name, age, and height
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    profiles[index]['name'], // Title (e.g., Entry name)
-                                    style: TextStyle(
-                                      // fontSize: 16,
-                                      // fontWeight: FontWeight.bold,
-                                      // color: Colors.white, // Ensure visibility on background
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-
-                                  SizedBox(height: 5),
-
-                                  Row(  // age and height
-                                    spacing: 25,
-                                    children: [
-                                      Text(
-                                        profiles[index]['age'], // Example subtitle
-                                        style: const TextStyle(
-                                          fontStyle: FontStyle.italic
-                                          //fontSize: 14,
-                                          //color: Colors.white70,
-                                        ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                            
-                                      Text(
-                                        profiles[index]['height'], // Example subtitle
-                                        style: const TextStyle(
-                                          fontStyle: FontStyle.italic
-                                          //fontSize: 14,
-                                          //color: Colors.white70,
-                                        ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                                            
-                              Text(  // distance
-                                profiles[index]['distance'],
-                                style: TextStyle(
-                                  fontStyle: FontStyle.italic
-                                  //fontSize: 14,
-                                  //color: Colors.white70,
-                                ),  
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-
-                      Padding(  // save profile button
-                        padding: EdgeInsets.only(right: 8.0),
-                        child: TextButton(
-                          onPressed: () {
-                            
-                          },
-                          
-                          child: Text(
-                            'save',
-                            style: TextStyle(
-                              //color: Colors.white
-                            ),
-                          ),
-                        ),
-                      ),
-                  ],)
-                ),
-              ),
+            return BannerItem(
+              profile: profiles[index],
+              index: index,
+              onBannerTap: onBannerTap,
             );
           },
         );
-      }
+      },
+    );
+  }
+}
+
+class BannerItem extends StatefulWidget {
+  const BannerItem({
+    super.key,
+    required this.profile,
+    required this.index,
+    required this.onBannerTap,
+  });
+
+  final Map<dynamic, dynamic> profile;
+  final int index;
+  final Function(int, int?) onBannerTap;
+
+  @override
+  _BannerItemState createState() => _BannerItemState();
+}
+
+class _BannerItemState extends State<BannerItem> {
+  bool picsAreExpanded = false;
+  bool introIsExpanded = false;
+  // Added: Stores the position for the popup menu
+  Offset? _tapPosition;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 5, left: 10, right: 10),
+      child: InkWell(
+        onTap: () => setState(() => picsAreExpanded = !picsAreExpanded),
+        onDoubleTap: () => widget.onBannerTap(1, widget.index),
+        // Added: Handle long press on entire banner to open it and show focused banner with menu
+        onLongPress: () {
+          setState(() {
+            picsAreExpanded = true; // Open the banner
+          });
+          showBannerDialog(
+            context: context,
+            profile: widget.profile,
+            index: widget.index,
+            // Added: Handle menu actions
+            onMenuAction: (action) {
+              print('$action selected for index ${widget.index}');
+            },
+            tapPosition: _tapPosition ?? Offset.zero,
+            picsAreExpanded: picsAreExpanded,
+          );
+        },
+        // Added: Store tap position for long press
+        onTapDown: (details) {
+          setState(() {
+            _tapPosition = details.globalPosition;
+          });
+        },
+        borderRadius: BorderRadius.circular(10),
+        child: BannerContent(
+          profile: widget.profile,
+          picsAreExpanded: picsAreExpanded,
+          introIsExpanded: introIsExpanded,
+          // Added: Handle profile picture tap
+          onProfileTap: () => showProfileDialog(
+            context: context,
+            imagePath: widget.profile['profilePic'] ?? 'assets/placeholder.jpg',
+            index: widget.index,
+            onMenuAction: (action) {
+              print('$action selected for index ${widget.index}');
+            },
+            tapPosition: _tapPosition ?? Offset.zero,
+          ),
+          // Added: Handle intro toggle
+          onIntroToggle: () => setState(() => introIsExpanded = !introIsExpanded),
+        ),
+      ),
+    );
+  }
+}
+
+// Added: Widget to encapsulate banner content for reuse in BannerItem and dialog
+class BannerContent extends StatelessWidget {
+  const BannerContent({
+    super.key,
+    required this.profile,
+    required this.picsAreExpanded,
+    required this.onProfileTap,
+    required this.onIntroToggle,
+    this.introIsExpanded = false,
+  });
+
+  final Map<dynamic, dynamic> profile;
+  final bool picsAreExpanded;
+  final bool introIsExpanded;
+  final VoidCallback onProfileTap;
+  final VoidCallback onIntroToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+          height: picsAreExpanded ? 80 + 266 : 80,
+          decoration: BoxDecoration(
+            color: const Color.fromARGB(255, 151, 160, 210),  // This used to be tranparent 
+            borderRadius: picsAreExpanded
+                ? BorderRadius.only(topLeft: Radius.circular(10), topRight: Radius.circular(10))
+                : BorderRadius.all(Radius.circular(10)),
+          ),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(left: 15.0, right: 15.0, top: 15, bottom: 15),
+                    child: InkWell(
+                      onTap: onProfileTap,
+                      borderRadius: BorderRadius.circular(24),
+                      child: CircleAvatar(
+                        radius: 24,
+                        backgroundImage: AssetImage(profile['profilePic'] ?? 'assets/placeholder.jpg'),
+                        backgroundColor: Colors.grey,
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              profile['name']?.toString() ?? 'Unknown',
+                              style: const TextStyle(overflow: TextOverflow.ellipsis),
+                            ),
+                            const SizedBox(height: 5),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.start,
+                              children: [
+                                Text(
+                                  profile['age']?.toString() ?? 'N/A',
+                                  style: const TextStyle(fontStyle: FontStyle.italic, overflow: TextOverflow.ellipsis),
+                                ),
+                                const SizedBox(width: 25),
+                                Text(
+                                  profile['height']?.toString() ?? 'N/A',
+                                  style: const TextStyle(fontStyle: FontStyle.italic, overflow: TextOverflow.ellipsis),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        Text(
+                          profile['distance']?.toString() ?? 'N/A',
+                          style: const TextStyle(fontStyle: FontStyle.italic),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8.0),
+                    child: TextButton(
+                      onPressed: () {},
+                      child: const Text('save'),
+                    ),
+                  ),
+                ],
+              ),
+              if (picsAreExpanded && profile['images'] != null)
+                Column(
+                  children: [
+                    SizedBox(
+                      width: 400,
+                      height: 266,
+                      child: GridView.builder(
+                        padding: EdgeInsets.all(0),
+                        physics: const NeverScrollableScrollPhysics(),
+                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 3,
+                          childAspectRatio: 1,
+                          mainAxisSpacing: 5,
+                          crossAxisSpacing: 5,
+                        ),
+                        itemCount: (profile['images'] as List).length.clamp(0, 6),
+                        itemBuilder: (context, imageIndex) {
+                          return Container(
+                            decoration: BoxDecoration(color: Color(0x50FFFFFF)),
+                            child: SizedBox(
+                              child: InkWell(
+                                onTap: () => showProfileDialog(
+                                  context: context,
+                                  imagePath: profile['images'][imageIndex],
+                                  index: 0, // Added: Index not used in this context
+                                  onMenuAction: (action) {
+                                    print('$action selected for image $imageIndex');
+                                  },
+                                  tapPosition: Offset.zero, // Added: Fallback tap position
+                                ),
+                                child: Image.asset(
+                                  profile['images'][imageIndex],
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+            ],
+          ),
+        ),
+        if (picsAreExpanded)
+          Container(
+            decoration: BoxDecoration(
+              color: Color(0x50FFFFFF),
+              borderRadius: BorderRadius.only(bottomLeft: Radius.circular(10), bottomRight: Radius.circular(10)),
+            ),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(left: 10),
+                      child: Text('Intro'),
+                    ),
+                    IconButton(
+                      onPressed: onIntroToggle,
+                      isSelected: introIsExpanded,
+                      selectedIcon: Icon(Icons.keyboard_arrow_up),
+                      icon: Icon(Icons.keyboard_arrow_down),
+                    ),
+                  ],
+                ),
+                if (introIsExpanded && profile['intro'] != null)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    child: Text(
+                      profile['intro']?.toString() ?? '',
+                      style: const TextStyle(fontSize: 16),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+      ],
     );
   }
 }

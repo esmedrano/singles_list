@@ -23,3 +23,14 @@ liked, disliked, favs
 
 NO
 edu, smoking, drinking, religion 
+
+for the grid view im officially copying iphone. Shouldnt take that much longer and it is the best
+- require more screen per pinch input
+- fading pictures
+- animate to adjacent zoom level unless second zoom level threshold is reached 
+
+adding share on long tap
+===========
+== BUGS: ==
+===========
+- too many builds when zooming out profiles too early 

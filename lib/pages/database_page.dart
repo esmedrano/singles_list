@@ -96,31 +96,30 @@ class _DatabasePageState extends State<DatabasePage> {
 
     calculateGridHeight(context);
 
-    return Center(
-      child: Column(
-        children: [
-          search_bar.DateSearch(theme: theme, onToggleViewMode: _toggleViewMode),  // Build search bar
-      
-          Expanded(  // Build profile scroller
-            child: isBannerView
-              ? banner_view.BannerView(
-                  scrollController: _scrollController, 
-                  profileData: widget.profileData, 
-                  isLoading: isLoading, 
-                  initialOffset: listViewOffset, 
-                  onBannerTap: widget.onBannerTap
-                )
-
-              : grid_view.BoxView(  // Does this get called again after the toggle is set to false after the first build
-                  scrollController: _scrollController, 
-                  profileData: widget.profileData, 
-                  isLoading: isLoading, 
-                  initialOffset: gridViewOffset, 
-                  onBannerTap: widget.onBannerTap,
-                ),
-          ),
-        ],
-      ),
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.start,
+      children: [
+        search_bar.DateSearch(theme: theme, onToggleViewMode: _toggleViewMode),  // Build search bar
+    
+        Expanded(  // Build profile scroller
+          child: isBannerView
+            ? banner_view.BannerView(
+                scrollController: _scrollController, 
+                profileData: widget.profileData, 
+                isLoading: isLoading, 
+                initialOffset: listViewOffset, 
+                onBannerTap: widget.onBannerTap
+              )
+    
+            : grid_view.BoxView(  
+                scrollController: _scrollController, 
+                profileData: widget.profileData, 
+                isLoading: isLoading, 
+                initialOffset: gridViewOffset, 
+                onBannerTap: widget.onBannerTap,
+              ),
+        ),
+      ],
     );
   }
 }

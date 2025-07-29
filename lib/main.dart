@@ -80,7 +80,6 @@ class _MyAppState extends State<MyApp> {
         ),
       ),
 
-
       home: Scaffold(  // Scaffold is necessary to keep the SafeArea from eliminating the system UI at the top of the screen ?!
         //resizeToAvoidBottomInset: true,
         body: Container(

@@ -194,7 +194,7 @@ class FiltersMenuState extends State<FiltersMenu> {
                               ),
                                         
                               child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                                crossAxisAlignment: CrossAxisAlignment.center,
                                 children: [
                                         
                                   SizedBox(
@@ -215,9 +215,10 @@ class FiltersMenuState extends State<FiltersMenu> {
                                         
                                   if (_showDistance) 
                                     Column(
+                                      //crossAxisAlignment: CrossAxisAlignment.center,
                                       children: [
                                         SizedBox(
-                                          height: 70,
+                                          height: 100,
                                           child: Builder(
                                             builder: (BuildContext context) {
                                               if (!_distanceInitialSync) {
@@ -226,24 +227,26 @@ class FiltersMenuState extends State<FiltersMenu> {
                                                   final index = _distanceOptions.contains(_distance) ? _distanceOptions.indexOf(_distance) : 0;
                                                   _distanceController.jumpToItem(index);    
                                                   _distanceInitialSync = true;
-                        
                                                 }
                                               });
                                               }
                                               
-                                              return CupertinoPicker(
-                                                scrollController: _distanceController,
-                                                
-                                                itemExtent: 30,
-                                                onSelectedItemChanged: (index) {
-                                                  setState(() {
-                                                    _distance = _distanceOptions[index];
-                                                  });
-                                                },
-                        
-                                                children: _distanceOptions
-                                                  .map((item) => Center(child: Text(item)))
-                                                  .toList(),
+                                              return SizedBox(
+                                                width: 150,
+                                                child: CupertinoPicker(
+                                                  scrollController: _distanceController,
+                                                  
+                                                  itemExtent: 35,
+                                                  onSelectedItemChanged: (index) {
+                                                    setState(() {
+                                                      _distance = _distanceOptions[index];
+                                                    });
+                                                  },
+                                                                        
+                                                  children: _distanceOptions
+                                                    .map((item) => Center(child: Text(item)))
+                                                    .toList(),
+                                                ),
                                               );
                                             }
                                           )
@@ -263,7 +266,6 @@ class FiltersMenuState extends State<FiltersMenu> {
                               ),
                                         
                               child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   SizedBox(  // Expand width of button to container width
                                     width: double.infinity,
@@ -285,27 +287,29 @@ class FiltersMenuState extends State<FiltersMenu> {
                                     Column(
                                       children: [
                                         Row(
+                                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                                           children: [
-                                            Expanded(
-                                              child: SizedBox(
-                                                height: 70,
-                        
-                                                child: Builder(
-                                                  builder: (BuildContext context) {
-                                                    if (!_ageInitialSync) {
-                                                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                                                      if (_ageMinController.hasClients) {
-                                                        final index = _ageOptions.contains(_ageMin) ? _ageOptions.indexOf(_ageMin) : 0;
-                                                        _ageMinController.jumpToItem(index);    
-                                                        _ageInitialSync = true;
-                        
-                                                      }
-                                                    });
+                                            SizedBox(
+                                              height: 100,
+                                                                    
+                                              child: Builder(
+                                                builder: (BuildContext context) {
+                                                  if (!_ageInitialSync) {
+                                                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                                                    if (_ageMinController.hasClients) {
+                                                      final index = _ageOptions.contains(_ageMin) ? _ageOptions.indexOf(_ageMin) : 0;
+                                                      _ageMinController.jumpToItem(index);    
+                                                      _ageInitialSync = true;
+                                                                    
                                                     }
-                                                    
-                                                    return CupertinoPicker(
+                                                  });
+                                                  }
+                                                  
+                                                  return SizedBox(
+                                                    width: 150,
+                                                    child: CupertinoPicker(
                                                       scrollController: _ageMinController,
-                                                      itemExtent: 30,
+                                                      itemExtent: 35,
                                                       onSelectedItemChanged: (index) {
                                                         setState(() {
                                                           _ageMin = _ageOptions[index];
@@ -318,33 +322,34 @@ class FiltersMenuState extends State<FiltersMenu> {
                                                       children: _ageOptions
                                                           .map((item) => Center(child: Text(item)))
                                                           .toList(),
-                                                    );
-                                                  }
-                                                )
-                                              ),
+                                                    ),
+                                                  );
+                                                }
+                                              )
                                             ),
                                             
                                             SizedBox(width: 8),
                         
-                                            Expanded(
-                                              child: SizedBox(
-                                                height: 70,
-                                                child: Builder(
-                                                  builder: (BuildContext context) {
-                                                    if (!_ageInitialSync) {
-                                                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                                                        if (_ageMaxController.hasClients) {
-                                                          final index = _ageOptions.contains(_ageMax) ? _ageOptions.indexOf(_ageMax) : 0;
-                                                          _ageMaxController.jumpToItem(index);    
-                                                          _ageInitialSync = true;
-                        
-                                                        }
-                                                      });
-                                                    }
-                                                    
-                                                    return CupertinoPicker(
+                                            SizedBox(
+                                              height: 100,
+                                              child: Builder(
+                                                builder: (BuildContext context) {
+                                                  if (!_ageInitialSync) {
+                                                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                                                      if (_ageMaxController.hasClients) {
+                                                        final index = _ageOptions.contains(_ageMax) ? _ageOptions.indexOf(_ageMax) : 0;
+                                                        _ageMaxController.jumpToItem(index);    
+                                                        _ageInitialSync = true;
+                                                                    
+                                                      }
+                                                    });
+                                                  }
+                                                  
+                                                  return SizedBox(
+                                                    width: 150,
+                                                    child: CupertinoPicker(
                                                       scrollController: _ageMaxController,
-                                                      itemExtent: 30,
+                                                      itemExtent: 35,
                                                       onSelectedItemChanged: (index) {
                                                         setState(() {
                                                           final newMax = _ageOptions[index];
@@ -360,10 +365,10 @@ class FiltersMenuState extends State<FiltersMenu> {
                                                       children: _ageOptions
                                                           .map((item) => Center(child: Text(item)))
                                                           .toList(),
-                                                    );
-                                                  }
-                                                )
-                                              ),
+                                                    ),
+                                                  );
+                                                }
+                                              )
                                             ),
                                           ],
                                         ),
@@ -382,7 +387,6 @@ class FiltersMenuState extends State<FiltersMenu> {
                               ),
                                         
                               child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   SizedBox(  // 
                                     width: double.infinity,
@@ -404,26 +408,28 @@ class FiltersMenuState extends State<FiltersMenu> {
                                     Column(
                                       children: [
                                         Row(
+                                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                                           children: [
-                                            Expanded(
-                                              child: SizedBox(
-                                                height: 70,
-                                                child: Builder(
-                                                  builder: (BuildContext context) {
-                                                    if (!_heightInitialSync) {
-                                                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                                                      if (_heightMinController.hasClients) {
-                                                        final index = _heightOptions.contains(_heightMin) ? _heightOptions.indexOf(_heightMin) : 0;
-                                                        _heightMinController.jumpToItem(index);    
-                                                        _heightInitialSync = true;
-                        
-                                                      }
-                                                    });
+                                            SizedBox(
+                                              height: 100,
+                                              child: Builder(
+                                                builder: (BuildContext context) {
+                                                  if (!_heightInitialSync) {
+                                                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                                                    if (_heightMinController.hasClients) {
+                                                      final index = _heightOptions.contains(_heightMin) ? _heightOptions.indexOf(_heightMin) : 0;
+                                                      _heightMinController.jumpToItem(index);    
+                                                      _heightInitialSync = true;
+                                                                    
                                                     }
-                                                    
-                                                    return CupertinoPicker(
+                                                  });
+                                                  }
+                                                  
+                                                  return SizedBox(
+                                                    width: 150,
+                                                    child: CupertinoPicker(
                                                       scrollController: _heightMinController,
-                                                      itemExtent: 30,
+                                                      itemExtent: 35,
                                                       onSelectedItemChanged: (index) {
                                                         setState(() {
                                                           _heightMin = _heightOptions[index];
@@ -436,57 +442,53 @@ class FiltersMenuState extends State<FiltersMenu> {
                                                       children: _heightOptions
                                                           .map((item) => Center(child: Text(item)))
                                                           .toList(),
-                                                    );
-                                                  }
-                                                )
-                                              ),
+                                                    ),
+                                                  );
+                                                }
+                                              )
                                             ),
                                         
                                             SizedBox(width: 8),
                                         
-                                            Expanded(
-                                              child: Column(
-                                                crossAxisAlignment: CrossAxisAlignment.start,
-                                                children: [
-                                                  SizedBox(
-                                                    height: 70,
-                                                    child: Builder(
-                                                      builder: (BuildContext context) {
-                                                        if (!_heightInitialSync) {
-                                                          WidgetsBinding.instance.addPostFrameCallback((_) {
-                                                            if (_heightMaxController.hasClients) {
-                                                              final index = _heightOptions.contains(_heightMax) ? _heightOptions.indexOf(_heightMax) : 0;
-                                                              _heightMaxController.jumpToItem(index);    
-                                                              _heightInitialSync = true;
-                        
-                                                            }
-                                                          });
-                                                        }
-                                                        
-                                                        return CupertinoPicker(
-                                                          scrollController: _heightMaxController,
-                                                          itemExtent: 30,
-                                                          onSelectedItemChanged: (index) {
-                                                            setState(() {
-                                                              final newMax = _heightOptions[index];
-                                                              if (_heightOptions.indexOf(newMax) >= _heightOptions.indexOf(_heightMin)) {
-                                                                _heightMax = newMax;
-                                                              } else {
-                                                                // Revert to _ageMin if invalid
-                                                                _heightMax = _heightMin;
-                                                                _heightMaxController.jumpToItem(_heightOptions.indexOf(_heightMin));
-                                                              }
-                                                            });
-                                                          },
-                                                          children: _heightOptions
-                                                              .map((item) => Center(child: Text(item)))
-                                                              .toList(),
-                                                        );
+                                            SizedBox(
+                                              height: 100,
+                                              child: Builder(
+                                                builder: (BuildContext context) {
+                                                  if (!_heightInitialSync) {
+                                                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                                                      if (_heightMaxController.hasClients) {
+                                                        final index = _heightOptions.contains(_heightMax) ? _heightOptions.indexOf(_heightMax) : 0;
+                                                        _heightMaxController.jumpToItem(index);    
+                                                        _heightInitialSync = true;
+                                                                
                                                       }
-                                                    )
-                                                  ),
-                                                ],
-                                              ),
+                                                    });
+                                                  }
+                                                  
+                                                  return SizedBox(
+                                                    width: 150,
+                                                    child: CupertinoPicker(
+                                                      scrollController: _heightMaxController,
+                                                      itemExtent: 35,
+                                                      onSelectedItemChanged: (index) {
+                                                        setState(() {
+                                                          final newMax = _heightOptions[index];
+                                                          if (_heightOptions.indexOf(newMax) >= _heightOptions.indexOf(_heightMin)) {
+                                                            _heightMax = newMax;
+                                                          } else {
+                                                            // Revert to _ageMin if invalid
+                                                            _heightMax = _heightMin;
+                                                            _heightMaxController.jumpToItem(_heightOptions.indexOf(_heightMin));
+                                                          }
+                                                        });
+                                                      },
+                                                      children: _heightOptions
+                                                          .map((item) => Center(child: Text(item)))
+                                                          .toList(),
+                                                    ),
+                                                  );
+                                                }
+                                              )
                                             ),
                                           ],
                                         ),
