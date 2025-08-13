@@ -1,11 +1,73 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
+// import 'package:flutter/rendering.dart';
+import 'package:flutter/cupertino.dart'; 
 import 'package:integra_date/widgets/navigation_bar.dart' as navigation_bar;
-import 'package:flutter/cupertino.dart';
 
-void main() {
-  // debugPaintSizeEnabled = true;
-  debugPaintSizeEnabled = false; // Disable debug borders
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart'; // Generated file after Firebase setup
+import 'package:firebase_app_check/firebase_app_check.dart';
+
+// Emulators
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+
+// void main() async {
+//   debugPaintSizeEnabled = false; // Disable debug borders
+
+//   WidgetsFlutterBinding.ensureInitialized();
+
+//   try {
+//     await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+//     print('Firebase initialized with project: ${Firebase.app().options.projectId}');
+//   } catch (e) {
+//     print('Firebase initialization error: $e');
+//   }
+
+//   await FirebaseAppCheck.instance.activate(  // Initialize appcheck 
+//     // androidProvider: AndroidProvider.playIntegrity, // Use `safetyNet` if Play Integrity is unavailable
+//     // appleProvider: AppleProvider.deviceCheck, // Or use `appAttest` for iOS
+//     androidProvider: AndroidProvider.debug,
+//   );
+
+//   runApp(const MyApp());
+// }
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  try {
+    await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+    print('Firebase initialized successfully with project: ${Firebase.app().options.projectId}');
+  } catch (e, stackTrace) {
+    print('Firebase initialization error: $e\n$stackTrace');
+    runApp(MaterialApp(
+      home: Scaffold(
+        body: Center(
+          child: Text('Firebase initialization failed: $e'),
+        ),
+      ),
+    ));
+    return;
+  }
+
+  try {
+    FirebaseFirestore.instance.useFirestoreEmulator('192.168.1.153', 8080);  // library: '172.29.2.222', home: '192.168.1.153'
+    await FirebaseStorage.instance.useStorageEmulator('192.168.1.153', 9199);
+    FirebaseAuth.instance.useAuthEmulator('192.168.1.153', 9099);
+    print('Emulator setup completed successfully');
+  } catch (e, stackTrace) {
+    print('Emulator setup error: $e\n$stackTrace');
+    runApp(MaterialApp(
+      home: Scaffold(
+        body: Center(
+          child: Text('Emulator setup failed: $e'),
+        ),
+      ),
+    ));
+    return;
+  }
+
   runApp(const MyApp());
 }
 
@@ -104,6 +166,7 @@ class _MyAppState extends State<MyApp> {
               end: Alignment.bottomRight,
             ),
           ),
+
 
           child: navigation_bar.PageSelectBar() 
 

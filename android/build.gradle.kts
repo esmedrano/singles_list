@@ -1,37 +1,34 @@
 buildscript {
-
-    repositories {
-      // Make sure that you have the following two repositories
-      google()  // Google's Maven repository
-      mavenCentral()  // Maven Central repository
-    }
-
-    dependencies {
-      ...
-
-      // Add the Maven coordinates and latest version of the plugin
-      classpath ("PLUGIN_MAVEN_COORDINATES:PLUGIN_VERSION")
-    }
+  repositories {
+    google() // Google's Maven repository
+    mavenCentral() // Maven Central repository
+  }
+  dependencies {
+    classpath("com.android.tools.build:gradle:8.5.0")
+    classpath("com.google.gms:google-services:4.4.2")
+    classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:2.0.20")
+  }
 }
 
 allprojects {
-    repositories {
-        google()
-        mavenCentral()
-    }
+  repositories {
+    google()
+    mavenCentral()
+  }
 }
 
 val newBuildDir: Directory = rootProject.layout.buildDirectory.dir("../../build").get()
-rootProject.layout.buildDirectory.value(newBuildDir)
+rootProject.layout.buildDirectory.set(newBuildDir)
 
 subprojects {
-    val newSubprojectBuildDir: Directory = newBuildDir.dir(project.name)
-    project.layout.buildDirectory.value(newSubprojectBuildDir)
+  val newSubprojectBuildDir: Directory = newBuildDir.dir(project.name)
+  project.layout.buildDirectory.set(newSubprojectBuildDir)
 }
+
 subprojects {
-    project.evaluationDependsOn(":app")
+  project.evaluationDependsOn(":app")
 }
 
 tasks.register<Delete>("clean") {
-    delete(rootProject.layout.buildDirectory)
+  delete(rootProject.layout.buildDirectory)
 }

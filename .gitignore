@@ -46,3 +46,11 @@ app.*.map.json
 
 # Firebase configuration files
 android/app/google-services.json
+ios/Runner/GoogleService-Info.plist
+lib/firebase_options.dart
+firebase.json
+
+# Generated files for unsupported platforms
+linux/flutter/generated_*
+macos/Flutter/GeneratedPluginRegistrant.swift
+windows/flutter/generated_*

@@ -186,23 +186,21 @@ void showBannerDialog({
       },
       child: Dialog(
         backgroundColor: Colors.transparent,
-        child: Center(
-          // Added: Center the banner content vertically
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              // Added: GestureDetector to dismiss both menu and dialog when tapping banner
-              GestureDetector(
-                onTap: () {
-                  if (isMenuVisible) {
-                    menuOverlay?.remove();
-                    isMenuVisible = false;
-                  }
-                  Navigator.of(context).pop();
-                },
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [ Container(
+        child: Stack(
+          children: [
+            // Added: GestureDetector to dismiss both menu and dialog when tapping banner
+            GestureDetector(
+              onTap: () {
+                if (isMenuVisible) {
+                  menuOverlay?.remove();
+                  isMenuVisible = false;
+                }
+                Navigator.of(context).pop();
+              },
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [ 
+                  Container(
                     key: bannerKey,
                     width: MediaQuery.of(context).size.width * 0.9,
                     child: BannerContent(
@@ -212,11 +210,12 @@ void showBannerDialog({
                       onProfileTap: () {},
                       onIntroToggle: () {},
                     ),
-                  ),]
-                ),
+                  ),
+                  SizedBox(height: MediaQuery.of(context).size.height * 0.25),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     ),
@@ -236,8 +235,8 @@ void showBannerDialog({
         final bannerPosition = bannerBox.localToGlobal(Offset.zero);
         final bannerBottomY = bannerPosition.dy + bannerBox.size.height;  // leave the / 2 idky
         // Added: Ensure menu is clamped to avoid overflow
-        final menuLeft = bannerPosition.dx;
-        final menuTop = bannerBottomY;
+        final menuLeft = MediaQuery.sizeOf(context).width / 2 - 125;
+        final menuTop = bannerBottomY + 10;
 
         // Added: Create custom menu using OverlayEntry
         menuOverlay = OverlayEntry(
@@ -262,7 +261,7 @@ void showBannerDialog({
                   elevation: 8,
                   borderRadius: BorderRadius.circular(8),
                   child: Container(
-                    width: 150,
+                    width: 250,
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [

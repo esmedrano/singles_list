@@ -8,12 +8,12 @@ class DatabasePage extends StatefulWidget {
     super.key,
     required this.theme,
     required this.profileData,
-    required this.onBannerTap,
+    required this.switchPage,
   });
 
   final ThemeData theme;
   final Future<List<Map<dynamic, dynamic>>> profileData;
-  final Function(int, int?) onBannerTap; // Callback to switch pages
+  final Function(int, int?) switchPage; // Callback to switch pages
 
   @override
   State<DatabasePage> createState() => _DatabasePageState();
@@ -108,7 +108,7 @@ class _DatabasePageState extends State<DatabasePage> {
                 profileData: widget.profileData, 
                 isLoading: isLoading, 
                 initialOffset: listViewOffset, 
-                onBannerTap: widget.onBannerTap
+                switchPage: widget.switchPage
               )
     
             : grid_view.BoxView(  
@@ -116,7 +116,7 @@ class _DatabasePageState extends State<DatabasePage> {
                 profileData: widget.profileData, 
                 isLoading: isLoading, 
                 initialOffset: gridViewOffset, 
-                onBannerTap: widget.onBannerTap,
+                switchPage: widget.switchPage,
               ),
         ),
       ],

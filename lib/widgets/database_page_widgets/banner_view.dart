@@ -8,7 +8,7 @@ class BannerView extends StatelessWidget {
     required this.profileData,
     required this.isLoading,
     required this.initialOffset,
-    required this.onBannerTap,
+    required this.switchPage,
     this.bannerH = 80,
   });
 
@@ -16,7 +16,7 @@ class BannerView extends StatelessWidget {
   final Future<List<Map<dynamic, dynamic>>> profileData;
   final bool isLoading;
   final double initialOffset;
-  final Function(int, int?) onBannerTap;
+  final Function(int, int?) switchPage;
   final double bannerH;
   static double bannerHeight = 80;
 
@@ -51,7 +51,7 @@ class BannerView extends StatelessWidget {
             return BannerItem(
               profile: profiles[index],
               index: index,
-              onBannerTap: onBannerTap,
+              onBannerTap: switchPage,
             );
           },
         );

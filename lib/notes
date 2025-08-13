@@ -29,8 +29,39 @@ for the grid view im officially copying iphone. Shouldnt take that much longer a
 - fading pictures
 - animate to adjacent zoom level unless second zoom level threshold is reached 
 
-adding share on long tap
 ===========
 == BUGS: ==
 ===========
 - too many builds when zooming out profiles too early 
+
+=====  
+|   |  
+=====
+
+=====  Warning: The debug provider allows access to your Firebase resources from unverified devices. Don't use the debug provider in 
+|   |  production builds of your app, and don't share your debug builds with untrusted parties.
+=====    
+
+=====  check AndroidManifest.xml for unnecessary permisions 
+|   |  
+=====    
+
+=====  privacy policy   
+|   |  
+=====
+
+=====  out of country phone number support   
+|   |  
+=====
+
+=====  android:networkSecurityConfig="@xml/network_security_config"    
+|   |  delete this and the file it's for the firebase emulator
+=====
+
+=====  turn pc firewall back on
+|   |  netsh advfirewall set allprofiles state off (turn on)
+=====
+
+=====  delete firebase.json  
+|   |  
+=====

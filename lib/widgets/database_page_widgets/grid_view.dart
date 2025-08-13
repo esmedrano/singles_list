@@ -10,14 +10,14 @@ class BoxView extends StatefulWidget {
     required this.profileData,
     required this.isLoading,
     required this.initialOffset,
-    required this.onBannerTap,
+    required this.switchPage,
   });
 
   final ScrollController scrollController;
   final Future<List<Map<dynamic, dynamic>>> profileData;
   final bool isLoading;
   final double initialOffset;
-  final Function(int, int?) onBannerTap;
+  final Function(int, int?) switchPage;
 
   @override
   _BoxViewState createState() => _BoxViewState();
@@ -379,7 +379,7 @@ class _BoxViewState extends State<BoxView> with TickerProviderStateMixin {
                               profile: profiles[index],
                               gridItemWidth: gridItemWidth,
                               index: index,
-                              onBannerTap: widget.onBannerTap,
+                              onBannerTap: widget.switchPage,
                               isPinching: _isPinching,
                             ),
                           );
