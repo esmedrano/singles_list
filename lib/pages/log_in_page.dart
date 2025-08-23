@@ -34,7 +34,16 @@ class PhoneNumberFormatter extends TextInputFormatter {
 class LogIn extends StatefulWidget {
   final Function(int, [int?]) switchPage;
   final VoidCallback enterDemo;
-  const LogIn({super.key, required this.switchPage, required this.enterDemo});
+  final VoidCallback createdAccount;
+  final VoidCallback loggedInAccount;
+
+  const LogIn({
+    super.key, 
+    required this.switchPage, 
+    required this.enterDemo, 
+    required this.createdAccount,
+    required this.loggedInAccount
+  });
 
   @override
   State<LogIn> createState() => _LogInState();
@@ -96,6 +105,7 @@ class _LogInState extends State<LogIn> {
   }
 
   Future<void> _createAccountWithEmailAndPhone() async {
+    widget.createdAccount();
     try {
       // Step 1: Collect email, password, and password confirmation
       print('Collecting email and password');
@@ -324,6 +334,7 @@ class _LogInState extends State<LogIn> {
   }
 
   Future<void> _createAccountWithGoogle() async {
+    widget.createdAccount();
     try {
       // Step 1: Perform phone authentication
       final result = await _authWithPhone();
@@ -378,7 +389,6 @@ class _LogInState extends State<LogIn> {
         }
         throw e;
       }
-
       // Step 5: Navigate to main app only after Google credential is linked
       widget.switchPage(0);
     } catch (e) {
@@ -394,6 +404,7 @@ class _LogInState extends State<LogIn> {
   }
 
   Future<void> _createAccountWithApple() async {
+    widget.createdAccount();
     try {
       // Step 1: Perform phone authentication
       final result = await _authWithPhone();
@@ -445,7 +456,6 @@ class _LogInState extends State<LogIn> {
         }
         throw e;
       }
-
       // Step 5: Navigate to main app only after Apple credential is linked
       widget.switchPage(0);
     } catch (e) {
@@ -457,6 +467,7 @@ class _LogInState extends State<LogIn> {
   }
 
   Future<void> _signInWithEmail() async {
+    widget.loggedInAccount();
     try {
       final emailController = TextEditingController();
       final passwordController = TextEditingController();
@@ -581,6 +592,7 @@ class _LogInState extends State<LogIn> {
   }
 
   Future<void> _signInWithGoogle() async {
+    widget.loggedInAccount();
     try {
       await GoogleSignIn().signOut(); // Clear cached account
       final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
@@ -657,6 +669,7 @@ class _LogInState extends State<LogIn> {
   }
 
   Future<void> _signInWithApple() async {
+    widget.loggedInAccount();
     try {
       final appleCredential = await SignInWithApple.getAppleIDCredential(
         scopes: [

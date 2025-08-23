@@ -1,18 +1,22 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:integra_date/databases/sqlite_database.dart' as sqlite;
+import 'package:integra_date/widgets/navigation_bar.dart' as navigation_bar;
+import 'dart:convert';
 
 class FiltersMenu extends StatefulWidget {
   const FiltersMenu({
     super.key,
+    required this.addNewFilteredProfiles
   });
+
+  final VoidCallback addNewFilteredProfiles;
 
   @override
   FiltersMenuState createState() => FiltersMenuState();
 }
 
 class FiltersMenuState extends State<FiltersMenu> {
-  
-  // State variables for selections
   String _distance = '5 mi';
   bool _showDistance = false;
   bool _distanceInitialSync = false;
@@ -27,45 +31,46 @@ class FiltersMenuState extends State<FiltersMenu> {
   bool _showHeight = false;
   bool _heightInitialSync = false;
 
-  List<String> _childrenSelected = [];  
-  bool _showChildren = false;  
-  
+  List<String> _childrenSelected = [];
+  bool _showChildren = false;
+
   List<String> _personalityTypesSelected = [];
   bool _showPersonality = false;
 
   List<String> _relationshipIntentSelected = [];
-  bool _showRelationshipIntent = false; 
+  bool _showRelationshipIntent = false;
 
   List<String> _tagsSelected = [];
   bool _showTags = false;
-  
-  String _listSelection = '';
-  bool _showLists = false; 
 
-  // Options for each filter
+  String _listSelection = '';
+  bool _showLists = false;
+
   final List<String> _distanceOptions = ['5 mi', '10 mi', '25 mi', '50 mi', '75 mi', '100 mi', '125 mi', '150 mi', '175 mi', '200 mi'];
   final List<String> _ageOptions = ['18', '20', '25', '30', '35', '40', '45', '50 +'];
-  final List<String> _heightOptions = [  // Build the height list iteratively 
+  final List<String> _heightOptions = [
     for (int feet = 4; feet <= 7; feet++)
       for (int inches = 0; inches <= 11; inches++)
         "$feet' ${inches.toString()}\""
-  ]; 
+  ];
   final List<String> _childrenOptions = ['has children', 'no children'];
   final List<String> _personalityTypes = ['Introvert', 'Extrovert', 'Ambivert'];
   final List<String> _tags = ['#fun', '#serious', '#adventurous', '#calm'];
   final List<String> _listOptions = ['List A', 'List B', 'List C', 'List D'];
-  final List<String> _relationshipIntentOptions = ['Casual', 'Serious', 'Open']; 
+  final List<String> _relationshipIntentOptions = ['Casual', 'Serious', 'Open'];
 
-  // Controllers for CupertinoPickers
   late FixedExtentScrollController _distanceController;
   late FixedExtentScrollController _ageMinController;
   late FixedExtentScrollController _ageMaxController;
   late FixedExtentScrollController _heightMinController;
   late FixedExtentScrollController _heightMaxController;
-  
+
   @override
-  void initState() {  // Initialize controllers with default values
-    super.initState();  
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      loadFilterValues();
+    });
     _distanceController = FixedExtentScrollController(
       initialItem: _distanceOptions.indexOf(_distance),
     );
@@ -83,8 +88,142 @@ class FiltersMenuState extends State<FiltersMenu> {
     );
   }
 
+  Future<void> loadFilterValues() async {
+    try {
+      final db = sqlite.DatabaseHelper.instance;
+      // Await each filter value with individual error handling
+      String? distance;
+      try {
+        distance = await db.getFilterValue('distance');
+        //print('Loaded distance: $distance');
+      } catch (e) {
+        //print('Error loading distance: $e');
+        distance = '5 mi';
+      }
+
+      String? ageMin;
+      try {
+        ageMin = await db.getFilterValue('ageMin');
+        //print('Loaded ageMin: $ageMin');
+      } catch (e) {
+        //print('Error loading ageMin: $e');
+        ageMin = '18';
+      }
+
+      String? ageMax;
+      try {
+        ageMax = await db.getFilterValue('ageMax');
+        //print('Loaded ageMax: $ageMax');
+      } catch (e) {
+        //print('Error loading ageMax: $e');
+        ageMax = '25';
+      }
+
+      String? heightMin;
+      try {
+        heightMin = await db.getFilterValue('heightMin');
+        //print('Loaded heightMin: $heightMin');
+      } catch (e) {
+        //print('Error loading heightMin: $e');
+        heightMin = "4' 0\"";
+      }
+
+      String? heightMax;
+      try {
+        heightMax = await db.getFilterValue('heightMax');
+        //print('Loaded heightMax: $heightMax');
+      } catch (e) {
+        //print('Error loading heightMax: $e');
+        heightMax = "5' 8\"";
+      }
+
+      List<String> children = [];
+      try {
+        final childrenValue = await db.getFilterValue('children') ?? '[]';
+        //print('Loaded childrenValue: $childrenValue');
+        children = (jsonDecode(childrenValue) as List<dynamic>).cast<String>();
+      } catch (e) {
+        //print('Error decoding children: $e');
+      }
+
+      List<String> relationshipIntent = [];
+      try {
+        final relationshipIntentValue = await db.getFilterValue('relationshipIntent') ?? '[]';
+        //print('Loaded relationshipIntentValue: $relationshipIntentValue');
+        relationshipIntent = (jsonDecode(relationshipIntentValue) as List<dynamic>).cast<String>();
+      } catch (e) {
+        //print('Error decoding relationshipIntent: $e');
+      }
+
+      List<String> personalityTypes = [];
+      try {
+        final personalityTypesValue = await db.getFilterValue('personalityTypes') ?? '[]';
+        //print('Loaded personalityTypesValue: $personalityTypesValue');
+        personalityTypes = (jsonDecode(personalityTypesValue) as List<dynamic>).cast<String>();
+      } catch (e) {
+        //print('Error decoding personalityTypes: $e');
+      }
+
+      List<String> tags = [];
+      try {
+        final tagsValue = await db.getFilterValue('tags') ?? '[]';
+        //print('Loaded tagsValue: $tagsValue');
+        tags = (jsonDecode(tagsValue) as List<dynamic>).cast<String>();
+      } catch (e) {
+        //print('Error decoding tags: $e');
+      }
+
+      String? listSelection;
+      try {
+        listSelection = await db.getFilterValue('listSelection');
+        //print('Loaded listSelection: $listSelection');
+      } catch (e) {
+        //print('Error loading listSelection: $e');
+        listSelection = '';
+      }
+
+      if (mounted) {
+        setState(() {
+          _distance = distance ?? '5 mi';
+          _ageMin = ageMin ?? '18';
+          _ageMax = ageMax ?? '25';
+          _heightMin = heightMin ?? "4' 0\"";
+          _heightMax = heightMax ?? "5' 8\"";
+          _childrenSelected = children;
+          _relationshipIntentSelected = relationshipIntent;
+          _personalityTypesSelected = personalityTypes;
+          _tagsSelected = tags;
+          _listSelection = listSelection ?? '';
+
+          // Update scroll controllers
+          _distanceController.jumpToItem(_distanceOptions.indexOf(_distance));
+          _ageMinController.jumpToItem(_ageOptions.indexOf(_ageMin));
+          _ageMaxController.jumpToItem(_ageOptions.indexOf(_ageMax));
+          _heightMinController.jumpToItem(_heightOptions.indexOf(_heightMin));
+          _heightMaxController.jumpToItem(_heightOptions.indexOf(_heightMax));
+        });
+      }
+    } catch (e) {
+      //print('Error loading filter values: $e');
+      if (mounted) {
+        setState(() {
+          _distance = '5 mi';
+          _ageMin = '18';
+          _ageMax = '25';
+          _heightMin = '4\' 0\"';
+          _heightMax = '5\' 8\"';
+          _childrenSelected = [];
+          _relationshipIntentSelected = [];
+          _personalityTypesSelected = [];
+          _tagsSelected = [];
+          _listSelection = '';
+        });
+      }
+    }
+  }
+
   @override
-  void dispose() {  // Dispose of controllers to prevent memory leaks
+  void dispose() {
     _distanceController.dispose();
     _ageMinController.dispose();
     _ageMaxController.dispose();
@@ -93,30 +232,47 @@ class FiltersMenuState extends State<FiltersMenu> {
     super.dispose();
   }
 
+  Future<void> saveAndApplyFilterValues() async {
+    try {
+      final db = sqlite.DatabaseHelper.instance;
+      await db.setFilterValue('distance', _distance);
+      await db.setFilterValue('ageMin', _ageMin);
+      await db.setFilterValue('ageMax', _ageMax);
+      await db.setFilterValue('heightMin', _heightMin);
+      await db.setFilterValue('heightMax', _heightMax);
+      await db.setFilterValue('children', jsonEncode(_childrenSelected));
+      await db.setFilterValue('relationshipIntent', jsonEncode(_relationshipIntentSelected));
+      await db.setFilterValue('personalityTypes', jsonEncode(_personalityTypesSelected));
+      await db.setFilterValue('tags', jsonEncode(_tagsSelected));
+      await db.setFilterValue('listSelection', _listSelection);
+      print('filters saved to sqlite');
+
+      // Apply filters by sorting current cache and getting more if cache and page are empty
+      widget.addNewFilteredProfiles();
+    } catch (e) {
+      print('Error saving filter values: $e');
+    }
+  }
+
   void displayFilters() {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-
-      builder: (BuildContext modalContext) {  // This just builds the popup
-        return DraggableScrollableSheet(  // Allowdragging of the popup
-          initialChildSize: 0.8, // Initial height (80% of screen height)
-          minChildSize: 0.3, // Minimum height (30% of screen height)
-          maxChildSize: 0.8, // Maximum height (90% of screen height)
-          expand: false, // Prevents the sheet from expanding to full screen by default
-
+      builder: (BuildContext modalContext) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.8,
+          minChildSize: 0.3,
+          maxChildSize: 0.8,
+          expand: false,
           builder: (BuildContext context, ScrollController scrollController) {
-            return StatefulBuilder(  // This allows screen to update when changing the filters
+            return StatefulBuilder(
               builder: (BuildContext context, StateSetter setState) {
                 return Container(
                   padding: EdgeInsets.all(10),
-                
-                  height: MediaQuery.of(context).size.height * 0.8,  // Popup height
-                
+                  height: MediaQuery.of(context).size.height * 0.8,
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
                     gradient: LinearGradient(
@@ -125,15 +281,13 @@ class FiltersMenuState extends State<FiltersMenu> {
                       end: Alignment.bottomRight,
                     ),
                   ),
-                
-                  child: Column(  // This is needed to allow the clear and apply buttons to always be on top of the scrollable list
+                  child: Column(
                     mainAxisSize: MainAxisSize.min,
-                    
                     children: [
-                      Row(  // Clear filters and apply filters are always on top of the scrollable list
+                      Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          TextButton(  // Clear button
+                          TextButton(
                             onPressed: () {
                               setState(() {
                                 _distance = '5 mi';
@@ -146,8 +300,6 @@ class FiltersMenuState extends State<FiltersMenu> {
                                 _personalityTypesSelected.clear();
                                 _tagsSelected.clear();
                                 _listSelection = '';
-                                
-                                // Reset picker positions
                                 _distanceController.jumpToItem(_distanceOptions.indexOf('5 mi'));
                                 _ageMinController.jumpToItem(_ageOptions.indexOf('18'));
                                 _ageMaxController.jumpToItem(_ageOptions.indexOf('25'));
@@ -157,132 +309,117 @@ class FiltersMenuState extends State<FiltersMenu> {
                                 _ageInitialSync = false;
                                 _heightInitialSync = false;
                               });
+                              saveAndApplyFilterValues();
                             },
-
                             style: ButtonStyle(
                               backgroundColor: WidgetStatePropertyAll(Color(0x50FFFFFF)),
-                              shape: WidgetStatePropertyAll(StadiumBorder())),
-
+                              shape: WidgetStatePropertyAll(StadiumBorder()),
+                            ),
                             child: Text('Clear Filters'),
                           ),
-
-                          TextButton(  // Apply button
+                          TextButton(
                             onPressed: () {
+                              saveAndApplyFilterValues();
                               Navigator.pop(context);
                             },
-
                             style: ButtonStyle(
                               backgroundColor: WidgetStatePropertyAll(Color(0x50FFFFFF)),
-                              shape: WidgetStatePropertyAll(StadiumBorder())),
-
+                              shape: WidgetStatePropertyAll(StadiumBorder()),
+                            ),
                             child: Text('Apply Filters'),
                           ),
                         ],
                       ),
-                      
-                      Expanded(  // The list view takes an infinite height so the column needs to set a limit. Expanded takes min height
+                      Expanded(
                         child: ListView(
-                          controller: scrollController, // Attach the scrollController
-                          
+                          controller: scrollController,
                           children: [
                             SizedBox(height: 15),
-                                        
-                            Container(  // Distance
+                            // Distance filter
+                            Container(
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(10),
                                 color: Color(0x50FFFFFF),
                               ),
-                                        
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.center,
                                 children: [
-                                        
                                   SizedBox(
                                     width: double.infinity,
-                                        
                                     child: TextButton(
                                       onPressed: () {
                                         setState(() {
                                           _showDistance = !_showDistance;
                                           if (_showDistance) {
-                                              _distanceInitialSync = false; // Reset sync flag when opening
+                                            _distanceInitialSync = false;
                                           }
                                         });
                                       },
                                       child: Text('distance', style: TextStyle(color: Color(0xFF000000))),
                                     ),
                                   ),
-                                        
-                                  if (_showDistance) 
+                                  if (_showDistance)
                                     Column(
-                                      //crossAxisAlignment: CrossAxisAlignment.center,
                                       children: [
                                         SizedBox(
                                           height: 100,
                                           child: Builder(
                                             builder: (BuildContext context) {
                                               if (!_distanceInitialSync) {
-                                              WidgetsBinding.instance.addPostFrameCallback((_) {
-                                                if (_distanceController.hasClients) {
-                                                  final index = _distanceOptions.contains(_distance) ? _distanceOptions.indexOf(_distance) : 0;
-                                                  _distanceController.jumpToItem(index);    
-                                                  _distanceInitialSync = true;
-                                                }
-                                              });
+                                                WidgetsBinding.instance.addPostFrameCallback((_) {
+                                                  if (_distanceController.hasClients) {
+                                                    final index = _distanceOptions.contains(_distance) ? _distanceOptions.indexOf(_distance) : 0;
+                                                    _distanceController.jumpToItem(index);
+                                                    _distanceInitialSync = true;
+                                                  }
+                                                });
                                               }
-                                              
                                               return SizedBox(
                                                 width: 150,
                                                 child: CupertinoPicker(
                                                   scrollController: _distanceController,
-                                                  
                                                   itemExtent: 35,
                                                   onSelectedItemChanged: (index) {
                                                     setState(() {
                                                       _distance = _distanceOptions[index];
                                                     });
                                                   },
-                                                                        
                                                   children: _distanceOptions
-                                                    .map((item) => Center(child: Text(item)))
-                                                    .toList(),
+                                                      .map((item) => Center(child: Text(item)))
+                                                      .toList(),
                                                 ),
                                               );
-                                            }
-                                          )
+                                            },
+                                          ),
                                         ),
                                       ],
                                     ),
                                 ],
                               ),
                             ),
-                                        
                             SizedBox(height: 15),
-                                        
-                            Container(  // Age
-                              decoration: BoxDecoration(  // Border
+                            // Age filter
+                            Container(
+                              decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(10),
                                 color: Color(0x50FFFFFF),
                               ),
-                                        
                               child: Column(
                                 children: [
-                                  SizedBox(  // Expand width of button to container width
+                                  SizedBox(
                                     width: double.infinity,
-                                        
                                     child: TextButton(
                                       onPressed: () {
                                         setState(() {
                                           _showAge = !_showAge;
                                           if (_showAge) {
-                                              _ageInitialSync = false; // Reset sync flag when opening
+                                            _ageInitialSync = false;
                                           }
                                         });
                                       },
                                       child: Text('age', style: TextStyle(color: Color(0xFF101010))),
                                     ),
                                   ),
-                                        
                                   if (_showAge)
                                     Column(
                                       children: [
@@ -291,20 +428,17 @@ class FiltersMenuState extends State<FiltersMenu> {
                                           children: [
                                             SizedBox(
                                               height: 100,
-                                                                    
                                               child: Builder(
                                                 builder: (BuildContext context) {
                                                   if (!_ageInitialSync) {
-                                                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                                                    if (_ageMinController.hasClients) {
-                                                      final index = _ageOptions.contains(_ageMin) ? _ageOptions.indexOf(_ageMin) : 0;
-                                                      _ageMinController.jumpToItem(index);    
-                                                      _ageInitialSync = true;
-                                                                    
-                                                    }
-                                                  });
+                                                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                                                      if (_ageMinController.hasClients) {
+                                                        final index = _ageOptions.contains(_ageMin) ? _ageOptions.indexOf(_ageMin) : 0;
+                                                        _ageMinController.jumpToItem(index);
+                                                        _ageInitialSync = true;
+                                                      }
+                                                    });
                                                   }
-                                                  
                                                   return SizedBox(
                                                     width: 150,
                                                     child: CupertinoPicker(
@@ -324,12 +458,10 @@ class FiltersMenuState extends State<FiltersMenu> {
                                                           .toList(),
                                                     ),
                                                   );
-                                                }
-                                              )
+                                                },
+                                              ),
                                             ),
-                                            
                                             SizedBox(width: 8),
-                        
                                             SizedBox(
                                               height: 100,
                                               child: Builder(
@@ -338,13 +470,11 @@ class FiltersMenuState extends State<FiltersMenu> {
                                                     WidgetsBinding.instance.addPostFrameCallback((_) {
                                                       if (_ageMaxController.hasClients) {
                                                         final index = _ageOptions.contains(_ageMax) ? _ageOptions.indexOf(_ageMax) : 0;
-                                                        _ageMaxController.jumpToItem(index);    
+                                                        _ageMaxController.jumpToItem(index);
                                                         _ageInitialSync = true;
-                                                                    
                                                       }
                                                     });
                                                   }
-                                                  
                                                   return SizedBox(
                                                     width: 150,
                                                     child: CupertinoPicker(
@@ -356,7 +486,6 @@ class FiltersMenuState extends State<FiltersMenu> {
                                                           if (_ageOptions.indexOf(newMax) >= _ageOptions.indexOf(_ageMin)) {
                                                             _ageMax = newMax;
                                                           } else {
-                                                            // Revert to _ageMin if invalid
                                                             _ageMax = _ageMin;
                                                             _ageMaxController.jumpToItem(_ageOptions.indexOf(_ageMin));
                                                           }
@@ -367,8 +496,8 @@ class FiltersMenuState extends State<FiltersMenu> {
                                                           .toList(),
                                                     ),
                                                   );
-                                                }
-                                              )
+                                                },
+                                              ),
                                             ),
                                           ],
                                         ),
@@ -377,33 +506,29 @@ class FiltersMenuState extends State<FiltersMenu> {
                                 ],
                               ),
                             ),
-                                        
                             SizedBox(height: 15),
-                                        
-                            Container(  // Height
-                              decoration: BoxDecoration(  // Border
+                            // Height filter
+                            Container(
+                              decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(10),
                                 color: Color(0x50FFFFFF),
                               ),
-                                        
                               child: Column(
                                 children: [
-                                  SizedBox(  // 
+                                  SizedBox(
                                     width: double.infinity,
-                                        
                                     child: TextButton(
                                       onPressed: () {
                                         setState(() {
                                           _showHeight = !_showHeight;
                                           if (_showHeight) {
-                                              _heightInitialSync = false; // Reset sync flag when opening
+                                            _heightInitialSync = false;
                                           }
                                         });
                                       },
                                       child: Text('height', style: TextStyle(color: Color(0xFF101010))),
                                     ),
                                   ),
-                                        
                                   if (_showHeight)
                                     Column(
                                       children: [
@@ -415,16 +540,14 @@ class FiltersMenuState extends State<FiltersMenu> {
                                               child: Builder(
                                                 builder: (BuildContext context) {
                                                   if (!_heightInitialSync) {
-                                                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                                                    if (_heightMinController.hasClients) {
-                                                      final index = _heightOptions.contains(_heightMin) ? _heightOptions.indexOf(_heightMin) : 0;
-                                                      _heightMinController.jumpToItem(index);    
-                                                      _heightInitialSync = true;
-                                                                    
-                                                    }
-                                                  });
+                                                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                                                      if (_heightMinController.hasClients) {
+                                                        final index = _heightOptions.contains(_heightMin) ? _heightOptions.indexOf(_heightMin) : 0;
+                                                        _heightMinController.jumpToItem(index);
+                                                        _heightInitialSync = true;
+                                                      }
+                                                    });
                                                   }
-                                                  
                                                   return SizedBox(
                                                     width: 150,
                                                     child: CupertinoPicker(
@@ -444,12 +567,10 @@ class FiltersMenuState extends State<FiltersMenu> {
                                                           .toList(),
                                                     ),
                                                   );
-                                                }
-                                              )
+                                                },
+                                              ),
                                             ),
-                                        
                                             SizedBox(width: 8),
-                                        
                                             SizedBox(
                                               height: 100,
                                               child: Builder(
@@ -458,13 +579,11 @@ class FiltersMenuState extends State<FiltersMenu> {
                                                     WidgetsBinding.instance.addPostFrameCallback((_) {
                                                       if (_heightMaxController.hasClients) {
                                                         final index = _heightOptions.contains(_heightMax) ? _heightOptions.indexOf(_heightMax) : 0;
-                                                        _heightMaxController.jumpToItem(index);    
+                                                        _heightMaxController.jumpToItem(index);
                                                         _heightInitialSync = true;
-                                                                
                                                       }
                                                     });
                                                   }
-                                                  
                                                   return SizedBox(
                                                     width: 150,
                                                     child: CupertinoPicker(
@@ -476,7 +595,6 @@ class FiltersMenuState extends State<FiltersMenu> {
                                                           if (_heightOptions.indexOf(newMax) >= _heightOptions.indexOf(_heightMin)) {
                                                             _heightMax = newMax;
                                                           } else {
-                                                            // Revert to _ageMin if invalid
                                                             _heightMax = _heightMin;
                                                             _heightMaxController.jumpToItem(_heightOptions.indexOf(_heightMin));
                                                           }
@@ -487,8 +605,8 @@ class FiltersMenuState extends State<FiltersMenu> {
                                                           .toList(),
                                                     ),
                                                   );
-                                                }
-                                              )
+                                                },
+                                              ),
                                             ),
                                           ],
                                         ),
@@ -497,21 +615,18 @@ class FiltersMenuState extends State<FiltersMenu> {
                                 ],
                               ),
                             ),
-                            
                             SizedBox(height: 15),
-                            
-                            Container(  // Children
+                            // Children filter
+                            Container(
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(10),
                                 color: Color(0x50FFFFFF),
                               ),
-                                        
-                              child: Column( 
+                              child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   SizedBox(
                                     width: double.infinity,
-                                        
                                     child: TextButton(
                                       onPressed: () {
                                         setState(() {
@@ -521,7 +636,6 @@ class FiltersMenuState extends State<FiltersMenu> {
                                       child: Text('children', style: TextStyle(color: Color(0xFF101010))),
                                     ),
                                   ),
-                                  
                                   if (_showChildren)
                                     Wrap(
                                       spacing: 8,
@@ -529,10 +643,8 @@ class FiltersMenuState extends State<FiltersMenu> {
                                         return ChoiceChip(
                                           label: Text(option),
                                           shape: StadiumBorder(),
-                                                                  
                                           selectedColor: Colors.indigo[300],
                                           backgroundColor: Color.fromARGB(255, 151, 159, 209),
-                                                                  
                                           selected: _childrenSelected.contains(option),
                                           onSelected: (selected) {
                                             setState(() {
@@ -548,22 +660,19 @@ class FiltersMenuState extends State<FiltersMenu> {
                                     ),
                                 ],
                               ),
-                            ),   
-                            
+                            ),
                             SizedBox(height: 15),
-                                        
-                            Container(  // Relationship Intent
+                            // Relationship Intent filter
+                            Container(
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(10),
                                 color: Color(0x50FFFFFF),
                               ),
-                                        
-                              child: Column(  
+                              child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   SizedBox(
                                     width: double.infinity,
-                                        
                                     child: TextButton(
                                       onPressed: () {
                                         setState(() {
@@ -573,24 +682,21 @@ class FiltersMenuState extends State<FiltersMenu> {
                                       child: Text('relationship intent', style: TextStyle(color: Color(0xFF101010))),
                                     ),
                                   ),
-                                        
                                   if (_showRelationshipIntent)
                                     Wrap(
                                       spacing: 8,
                                       children: _relationshipIntentOptions.map((option) {
                                         return ChoiceChip(
                                           label: Text(option),
-                                          shape: StadiumBorder(),                     
+                                          shape: StadiumBorder(),
                                           selectedColor: Colors.indigo[200],
                                           backgroundColor: Color.fromARGB(255, 151, 159, 209),
                                           selected: _relationshipIntentSelected.contains(option),
                                           onSelected: (selected) {
                                             setState(() {
-                                              if (selected &&
-                                                  !_relationshipIntentSelected.contains(option)) {
+                                              if (selected && !_relationshipIntentSelected.contains(option)) {
                                                 _relationshipIntentSelected.add(option);
-                                              } else if (!selected &&
-                                                  _relationshipIntentSelected.contains(option)) {
+                                              } else if (!selected && _relationshipIntentSelected.contains(option)) {
                                                 _relationshipIntentSelected.remove(option);
                                               }
                                             });
@@ -601,21 +707,18 @@ class FiltersMenuState extends State<FiltersMenu> {
                                 ],
                               ),
                             ),
-                                        
                             SizedBox(height: 15),
-                                        
-                            Container(  // Personality Type
+                            // Personality Type filter
+                            Container(
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(10),
                                 color: Color(0x50FFFFFF),
                               ),
-                                        
-                              child: Column(   
+                              child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   SizedBox(
                                     width: double.infinity,
-                                        
                                     child: TextButton(
                                       onPressed: () {
                                         setState(() {
@@ -631,17 +734,15 @@ class FiltersMenuState extends State<FiltersMenu> {
                                       children: _personalityTypes.map((type) {
                                         return ChoiceChip(
                                           label: Text(type),
-                                          shape: StadiumBorder(),                        
+                                          shape: StadiumBorder(),
                                           selectedColor: Colors.indigo[200],
                                           backgroundColor: Color.fromARGB(255, 151, 159, 209),
                                           selected: _personalityTypesSelected.contains(type),
                                           onSelected: (selected) {
                                             setState(() {
-                                              if (selected &&
-                                                  !_personalityTypesSelected.contains(type)) {
+                                              if (selected && !_personalityTypesSelected.contains(type)) {
                                                 _personalityTypesSelected.add(type);
-                                              } else if (!selected &&
-                                                  _personalityTypesSelected.contains(type)) {
+                                              } else if (!selected && _personalityTypesSelected.contains(type)) {
                                                 _personalityTypesSelected.remove(type);
                                               }
                                             });
@@ -652,28 +753,24 @@ class FiltersMenuState extends State<FiltersMenu> {
                                 ],
                               ),
                             ),
-                                        
                             SizedBox(height: 15),
-                                        
-                            Container(  // Tags
+                            // Tags filter
+                            Container(
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(10),
                                 color: Color(0x50FFFFFF),
                               ),
-                                        
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   SizedBox(
                                     width: double.infinity,
-                                        
                                     child: TextButton(
                                       onPressed: () {
                                         setState(() {
                                           _showTags = !_showTags;
                                         });
                                       },
-                                      
                                       child: Text('tags', style: TextStyle(color: Color(0xFF101010))),
                                     ),
                                   ),
@@ -682,8 +779,8 @@ class FiltersMenuState extends State<FiltersMenu> {
                                       spacing: 8,
                                       children: _tags.map((tag) {
                                         return ChoiceChip(
-                                          label: Text(tag),                                                    
-                                          shape: StadiumBorder(),                        
+                                          label: Text(tag),
+                                          shape: StadiumBorder(),
                                           selectedColor: Colors.indigo[200],
                                           backgroundColor: Color.fromARGB(255, 151, 159, 209),
                                           selected: _tagsSelected.contains(tag),
@@ -702,21 +799,18 @@ class FiltersMenuState extends State<FiltersMenu> {
                                 ],
                               ),
                             ),
-                                        
                             SizedBox(height: 15),
-                            
-                            Container(  // Lists
+                            // Lists filter
+                            Container(
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(10),
                                 color: Color(0x50FFFFFF),
                               ),
-                                        
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   SizedBox(
                                     width: double.infinity,
-                                        
                                     child: TextButton(
                                       onPressed: () {
                                         setState(() {
@@ -732,14 +826,14 @@ class FiltersMenuState extends State<FiltersMenu> {
                                       children: _listOptions.map((option) {
                                         return ChoiceChip(
                                           label: Text(option),
-                                          shape: StadiumBorder(),                        
+                                          shape: StadiumBorder(),
                                           selectedColor: Colors.indigo[200],
                                           backgroundColor: Color.fromARGB(255, 151, 159, 209),
                                           selected: _listSelection == option,
                                           onSelected: (selected) {
                                             setState(() {
                                               if (selected) {
-                                                _listSelection = option; // Single selection only
+                                                _listSelection = option;
                                               }
                                             });
                                           },
@@ -757,23 +851,25 @@ class FiltersMenuState extends State<FiltersMenu> {
                 );
               },
             );
-          }
+          },
         );
       },
-    ).then((value) {  // Reset all toggle states and selections after the modal is dismissed
-      setState(() {
-        _showDistance = false;
-        _showAge = false;
-        _showHeight = false;
-        _showChildren = false;
-        _showRelationshipIntent = false;
-        _showPersonality = false;
-        _showTags = false;
-        _showLists = false;
-        _distanceInitialSync = false;
-        _ageInitialSync = false;
-        _heightInitialSync = false;
-      });
+    ).then((value) {
+      if (mounted) {
+        setState(() {
+          _showDistance = false;
+          _showAge = false;
+          _showHeight = false;
+          _showChildren = false;
+          _showRelationshipIntent = false;
+          _showPersonality = false;
+          _showTags = false;
+          _showLists = false;
+          _distanceInitialSync = false;
+          _ageInitialSync = false;
+          _heightInitialSync = false;
+        });
+      }
     });
   }
 
@@ -783,11 +879,9 @@ class FiltersMenuState extends State<FiltersMenu> {
       onPressed: () {
         displayFilters();
       },
-
       style: ButtonStyle(
         backgroundColor: WidgetStatePropertyAll(Color(0xFF909090)),
       ),
-
       child: Text(
         'Filters',
         style: TextStyle(

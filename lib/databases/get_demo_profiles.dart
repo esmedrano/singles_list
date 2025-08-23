@@ -1,0 +1,49 @@
+Future<List<Map<dynamic, dynamic>>> getDemoProfiles() async {  
+  await Future.delayed(Duration(seconds: 2));
+  
+  List<Map<dynamic, dynamic>> profileData = [  
+  {'profilePic':'assets/test_photos/IMG_0197.jpeg', 
+    'images':
+    ['assets/test_photos/IMG_0164.jpeg', 
+    'assets/test_photos/IMG_0167.jpeg', 
+    'assets/test_photos/IMG_0168.jpeg', 
+    'assets/test_photos/IMG_0197.jpeg',
+    'assets/test_photos/IMG_0206.jpeg',
+    'assets/test_photos/IMG_0219.jpeg',
+    ], 
+    'name':'Elijah', 
+    'age':'24', 
+    'height':'5\'10"', 
+    'location':'Euless, TX', 
+    'distance':'1 mi',
+    'intro':'Hello world! My name is Elijah Medrano and I like to code. I also like to play video games. /n test'
+  }, 
+  {'profilePic':'assets/test_photos/IMG_0164.jpeg', 
+    'images':[
+    'assets/test_photos/IMG_0164.jpeg', 
+    'assets/test_photos/IMG_0167.jpeg', 
+    'assets/test_photos/IMG_0168.jpeg', 
+    'assets/test_photos/IMG_0197.jpeg',
+    'assets/test_photos/IMG_0206.jpeg', 
+    ],
+    'name':'Elijah Medrano', 
+    'age':'24', 
+    'height':'5\'10"', 
+    'location':'Euless, TX', 
+    'distance':'10 mi'}, 
+  {'profilePic':'assets/test_photos/IMG_0310.jpeg', 
+    'images':[
+    'assets/test_photos/IMG_0164.jpeg', 
+    'assets/test_photos/IMG_0167.jpeg', 
+    'assets/test_photos/IMG_0168.jpeg', 
+    'assets/test_photos/IMG_0197.jpeg',
+    'assets/test_photos/IMG_0206.jpeg', 
+    ],
+    'name':'Elijah Medrano', 
+    'age':'24', 
+    'height':'5\'10"', 
+    'location':'Euless, TX', 
+    'distance':'1 mi'}];
+
+  return profileData;
+}

@@ -29,18 +29,32 @@ for the grid view im officially copying iphone. Shouldnt take that much longer a
 - fading pictures
 - animate to adjacent zoom level unless second zoom level threshold is reached 
 
+
+===========
+== TODO: ==
+===========
+- // This is good but now I need to load in all firestore image paths, get the download 
+  urls, and cache them to sqlite
+  // Then when I open the profiles I can download the images to the doc dir
+
 ===========
 == BUGS: ==
 ===========
 - too many builds when zooming out profiles too early 
+- profile verification needs a look
+- whole app needs a look
+
+================
+== CHECKLIST: ==
+================
 
 =====  
 |   |  
 =====
 
-=====  Warning: The debug provider allows access to your Firebase resources from unverified devices. Don't use the debug provider in 
-|   |  production builds of your app, and don't share your debug builds with untrusted parties.
-=====    
+=====  Warning: The debug provider allows access to your Firebase resources from unverified
+|   |  devices. Don't use the debug provider in production builds of your app, and don't share 
+=====  your debug builds with untrusted parties.    
 
 =====  check AndroidManifest.xml for unnecessary permisions 
 |   |  
@@ -64,4 +78,27 @@ for the grid view im officially copying iphone. Shouldnt take that much longer a
 
 =====  delete firebase.json  
 |   |  
+=====
+
+=====  don't use mounted accross async scopes as this my crash the app. e.g. snackbar scaffolds   
+|   |  from other files that display over the page refferencing the file
+=====
+
+=====  For cost control, you can set the maximum number of containers that can be
+|   |  running at the same time. This helps mitigate the impact of unexpected
+=====  traffic spikes by instead downgrading performance. This limit is a per-function
+       limit. You can override the limit for each function using the max_instances
+       parameter in the decorator, e.g. @https_fn.on_request(max_instances=5).
+
+=====  warning: [options] To suppress warnings about obsolete options, use -Xlint:-options.
+|   |  3 warnings
+=====  warning: [options] source value 8 is obsolete and will be removed in a future release
+       warning: [options] target value 8 is obsolete and will be removed in a future release
+       warning: [options] To suppress warnings about obsolete options, use -Xlint:-options.
+       3 warnings
+       
+       (upon app installation)
+
+=====  is it dangerous to use ! for null checking? Will it crash my app and should is use an if null 
+|   |  check instead?
 =====

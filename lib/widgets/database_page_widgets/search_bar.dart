@@ -5,11 +5,13 @@ class DateSearch extends StatefulWidget {
   const DateSearch({
     super.key,
     required this.theme,
-    required this.onToggleViewMode
+    required this.onToggleViewMode,
+    required this.addNewFilteredProfiles
   });
 
   final ThemeData theme;
   final VoidCallback onToggleViewMode;
+  final VoidCallback addNewFilteredProfiles;
 
   @override
   State<DateSearch> createState() => _DateSearchState();
@@ -39,7 +41,7 @@ class _DateSearchState extends State<DateSearch> {
       
             buildSearchBar(context),
       
-            filters_menu.FiltersMenu(),
+            filters_menu.FiltersMenu(addNewFilteredProfiles: widget.addNewFilteredProfiles),
       
           ],
         ),
