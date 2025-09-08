@@ -1,8 +1,13 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:integra_date/databases/sqlite_database.dart' as sqlite;
-import 'package:integra_date/widgets/navigation_bar.dart' as navigation_bar;
 import 'dart:convert';
+
+// This turns off the apply filters button while a query is occuring 
+bool runningRings = false;
+void toggleRings(bool running) {
+  runningRings = running;
+}
 
 class FiltersMenu extends StatefulWidget {
   const FiltersMenu({
@@ -10,7 +15,7 @@ class FiltersMenu extends StatefulWidget {
     required this.addNewFilteredProfiles
   });
 
-  final VoidCallback addNewFilteredProfiles;
+  final Function(bool?) addNewFilteredProfiles;
 
   @override
   FiltersMenuState createState() => FiltersMenuState();
@@ -234,6 +239,19 @@ class FiltersMenuState extends State<FiltersMenu> {
 
   Future<void> saveAndApplyFilterValues() async {
     try {
+      final lastDistance = _distance;
+      final lastAgeMin = _ageMin;
+      final lastAgeMax = _ageMax;
+      final lastHeightMin = _heightMin;
+      final lastHeightMax = _heightMax;
+      final lastChildren = _childrenSelected;
+      final lastRelationshipIntent = _relationshipIntentSelected;
+      final lastPersonalityTypes = _personalityTypesSelected;
+      final lastTags = _tagsSelected;
+      final lastListSelection = _listSelection;
+
+      bool onlyDistanceChanged = false;
+
       final db = sqlite.DatabaseHelper.instance;
       await db.setFilterValue('distance', _distance);
       await db.setFilterValue('ageMin', _ageMin);
@@ -247,8 +265,21 @@ class FiltersMenuState extends State<FiltersMenu> {
       await db.setFilterValue('listSelection', _listSelection);
       print('filters saved to sqlite');
 
+      if (lastDistance != _distance &&  // This is only true if distance is the only filter updated 
+          lastAgeMin == _ageMin && 
+          lastAgeMax == _ageMax && 
+          lastHeightMin == _heightMin && 
+          lastHeightMax == _heightMax && 
+          lastChildren == _childrenSelected && 
+          lastRelationshipIntent == _relationshipIntentSelected && 
+          lastPersonalityTypes == _personalityTypesSelected && 
+          lastTags == _tagsSelected && 
+          lastListSelection == _listSelection) {
+        onlyDistanceChanged = true;
+      }
+
       // Apply filters by sorting current cache and getting more if cache and page are empty
-      widget.addNewFilteredProfiles();
+      widget.addNewFilteredProfiles(onlyDistanceChanged);
     } catch (e) {
       print('Error saving filter values: $e');
     }
@@ -288,29 +319,31 @@ class FiltersMenuState extends State<FiltersMenu> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           TextButton(
-                            onPressed: () {
-                              setState(() {
-                                _distance = '5 mi';
-                                _ageMin = '18';
-                                _ageMax = '25';
-                                _heightMin = '4\' 0\"';
-                                _heightMax = '5\' 8\"';
-                                _childrenSelected.clear();
-                                _relationshipIntentSelected.clear();
-                                _personalityTypesSelected.clear();
-                                _tagsSelected.clear();
-                                _listSelection = '';
-                                _distanceController.jumpToItem(_distanceOptions.indexOf('5 mi'));
-                                _ageMinController.jumpToItem(_ageOptions.indexOf('18'));
-                                _ageMaxController.jumpToItem(_ageOptions.indexOf('25'));
-                                _heightMinController.jumpToItem(_heightOptions.indexOf('4\' 0\"'));
-                                _heightMaxController.jumpToItem(_heightOptions.indexOf('5\' 8\"'));
-                                _distanceInitialSync = false;
-                                _ageInitialSync = false;
-                                _heightInitialSync = false;
-                              });
-                              saveAndApplyFilterValues();
-                            },
+                            onPressed: !runningRings 
+                              ? () {
+                                  setState(() {
+                                    _distance = '5 mi';
+                                    _ageMin = '18';
+                                    _ageMax = '25';
+                                    _heightMin = '4\' 0\"';
+                                    _heightMax = '5\' 8\"';
+                                    _childrenSelected.clear();
+                                    _relationshipIntentSelected.clear();
+                                    _personalityTypesSelected.clear();
+                                    _tagsSelected.clear();
+                                    _listSelection = '';
+                                    _distanceController.jumpToItem(_distanceOptions.indexOf('5 mi'));
+                                    _ageMinController.jumpToItem(_ageOptions.indexOf('18'));
+                                    _ageMaxController.jumpToItem(_ageOptions.indexOf('25'));
+                                    _heightMinController.jumpToItem(_heightOptions.indexOf('4\' 0\"'));
+                                    _heightMaxController.jumpToItem(_heightOptions.indexOf('5\' 8\"'));
+                                    _distanceInitialSync = false;
+                                    _ageInitialSync = false;
+                                    _heightInitialSync = false;
+                                  });
+                                  saveAndApplyFilterValues();
+                                }
+                              : null,
                             style: ButtonStyle(
                               backgroundColor: WidgetStatePropertyAll(Color(0x50FFFFFF)),
                               shape: WidgetStatePropertyAll(StadiumBorder()),
@@ -318,10 +351,12 @@ class FiltersMenuState extends State<FiltersMenu> {
                             child: Text('Clear Filters'),
                           ),
                           TextButton(
-                            onPressed: () {
-                              saveAndApplyFilterValues();
-                              Navigator.pop(context);
-                            },
+                            onPressed: !runningRings 
+                              ? () { 
+                                  saveAndApplyFilterValues();
+                                  Navigator.pop(context);
+                                }
+                              : null,
                             style: ButtonStyle(
                               backgroundColor: WidgetStatePropertyAll(Color(0x50FFFFFF)),
                               shape: WidgetStatePropertyAll(StadiumBorder()),

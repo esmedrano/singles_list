@@ -37,12 +37,43 @@ for the grid view im officially copying iphone. Shouldnt take that much longer a
   urls, and cache them to sqlite
   // Then when I open the profiles I can download the images to the doc dir
 
+- check for radii cacheing after depleting a small seed radius
+
+- check list of cached profiles against list of firebase profiles. Ensure no duplicates 
+
+- arange firebase profiles in order and then check against cache again
+
+- double click on banner to open in swipe view, swipe, and then it picks up at the begining of the cache instead of the     
+  location of the profile. Returning to banner view doe not load in current swipe view location
+
+- Check for unecessary page rebuilds with Widget build() print statements
+  e.g. print('Swipe page building now!');
+
+- Already checking initial pagination firebase queries. Check cache pagination 
+
+- Fix location permissions so that when per denied after two denials a button appears to take user to location settings. Also fix
+  redundant location requests. Be sure nothing works unless permissions are granted. 
+
 ===========
 == BUGS: ==
 ===========
 - too many builds when zooming out profiles too early 
 - profile verification needs a look
 - whole app needs a look
+
+- shutting off the app mid query may break it
+- the ring algo starts after initial load, and the next page buttonshould be loading until the initial ring query is complete. 
+
+- after canceling the phone verif once, it no longer sends
+
+- if initial query finds more than max profiles in a hash of precision 6, it breaks
+
+- if large initial hash exceeds firestore query limit, no query is made 
+
+- After cacheing a large radius, the shortenRings function will know not to query any smaller radii, but this requires a moderate 
+  ammount of calculations. It maybe easier to do this another way, but it only adds like .5 seconds of load time. 
+
+- Make sure the ring algo picks up at the appropriate spot after the initial large hash query 
 
 ================
 == CHECKLIST: ==
@@ -99,6 +130,34 @@ for the grid view im officially copying iphone. Shouldnt take that much longer a
        
        (upon app installation)
 
-=====  is it dangerous to use ! for null checking? Will it crash my app and should is use an if null 
-|   |  check instead?
+=====  is it dangerous to use ! for null checking? Will it crash my app and should is use an if 
+|   |  null check instead?
+=====
+
+=====  So it seems that any compute heavy functino should be a Future to avoid crashing the UI 
+|   |  thread during builds or usage
+=====
+
+=====  QUERY USR CURRENT HASH (see hash GeoViz without shortner it isn't in the first rings)  
+|   |  
+=====
+
+=====  ctrl f: CHECK    
+|   |  
+=====
+
+=====  does loadCachedOrFirebaseProfiles need to be async ?? and await called every instance ??  
+|   |  
+=====
+
+=====  The initial hash may contain > 105, which is the limit for my initial firebase query   
+|   |  
+=====
+
+=====  Every once in awhile the garbage collector (GC) starts and the app won't start until reinstalled  
+|   |  
+=====
+
+=====  check for redundant profiles after getting initial hash and starting first ring  
+|   |  
 =====

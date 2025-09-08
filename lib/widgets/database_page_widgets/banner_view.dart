@@ -2,6 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:integra_date/databases/sqlite_database.dart' as sqlite;
 import 'dart:io';
 import 'package:integra_date/widgets/share_popup.dart';
+import 'package:integra_date/widgets/pagination_buttons.dart' as pagination_buttons;
+
+bool startedRingAlgo = false;
+bool paginatingNext = false;
+bool paginatingPrevious = false;
 
 class BannerView extends StatelessWidget {
   const BannerView({
@@ -13,8 +18,14 @@ class BannerView extends StatelessWidget {
     required this.switchPage,
     this.bannerH = 80,
 
-    required this.startRingAlgo  // From navigation_bar.dart. Updates the page with profiles after the ring algo query completes for the radius set in filters
+    required this.startRingAlgo,  // From navigation_bar.dart. Updates the page with profiles after the ring algo query completes for the radius set in filters
 
+    required this.currentPage,
+    required this.hasPreviousPage,
+    required this.hasNextPage,
+    required this.onPreviousPage,
+    required this.onNextPage,
+    required this.pageCount,
   });
 
   final ScrollController scrollController;
@@ -26,6 +37,13 @@ class BannerView extends StatelessWidget {
   static double bannerHeight = 80;
 
   final VoidCallback startRingAlgo;
+
+  final int currentPage;
+  final bool hasPreviousPage;
+  final bool hasNextPage;
+  final Function([int?]) onPreviousPage;
+  final Function([int?]) onNextPage;
+  final int pageCount;
 
   @override
   Widget build(BuildContext context) {
@@ -43,26 +61,62 @@ class BannerView extends StatelessWidget {
         final profiles = snapshot.data!;
         print('rebuilt banner view with ${profiles.length} profiles');
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (scrollController.hasClients && scrollController.offset != initialOffset) {
+          if (scrollController.hasClients && scrollController.offset != initialOffset && !paginatingNext && !paginatingPrevious) {
             scrollController.jumpTo(initialOffset.clamp(0.0, scrollController.position.maxScrollExtent));
+          }
+
+          if (paginatingNext) {  // If paginating to next page, be sure to start the next page at offset = 0 
+            scrollController.jumpTo(0);  
+            paginatingNext = false;
+          }
+
+          if (paginatingPrevious) {  // If paginating to previous page, be sure to start the next pageat max scroll controller offset
+            scrollController.jumpTo(scrollController.position.maxScrollExtent);
+            paginatingPrevious = false;
           }
         });
 
-        return ListView.builder(
-          padding: const EdgeInsets.only(top: 30),
-          controller: scrollController,
-          itemCount: profiles.length + (isLoading ? 1 : 0),
-          itemBuilder: (context, index) {
-            if (index == profiles.length) {
-              return const Center(child: CircularProgressIndicator());
-            }
-            return BannerItem(
-              profile: profiles[index],
-              index: index,
-              onBannerTap: switchPage,
-              startRingAlgo: startRingAlgo
-            );
-          },
+        return Column(
+          children: [
+            Expanded(
+              child: ListView.builder(
+                padding: const EdgeInsets.only(top: 30),
+                controller: scrollController,
+                itemCount: profiles.length + (isLoading ? 1 : 0),
+                itemBuilder: (context, index) {
+                  if (index == profiles.length - 1) {
+                    //return const Center(child: CircularProgressIndicator());
+                  }
+                  return Column(
+                    children: [
+                      BannerItem(
+                        profile: profiles[index],
+                        index: index,
+                        switchPage: switchPage,
+                        startRingAlgo: startRingAlgo
+                      ),
+
+                      if (index == profiles.length - 1)  // The way this item builder iterates, an if statemnet is needed to be sure the pagination buttons are only built under the last banner item
+                      pagination_buttons.PaginationButtons(
+                        currentPage: currentPage,
+                        hasPreviousPage: hasPreviousPage,
+                        hasNextPage: hasNextPage,
+                        onPreviousPage: ([int? cupertinoDestination]) {
+                          onPreviousPage(cupertinoDestination);
+                          paginatingPrevious = true;  
+                        },
+                        onNextPage: ([int? cupertinoDestination]) {
+                          onNextPage(cupertinoDestination);
+                          paginatingNext = true;  
+                        },
+                        pageCount: pageCount,
+                      ),
+                    ],
+                  ); 
+                },
+              ),
+            ),
+          ],
         );
       },
     );
@@ -74,13 +128,13 @@ class BannerItem extends StatefulWidget {
     super.key,
     required this.profile,
     required this.index,
-    required this.onBannerTap,
+    required this.switchPage,
     required this.startRingAlgo  // From navigation_bar.dart. Updates the page with profiles after the ring algo query completes for the radius set in filters
   });
 
   final Map<dynamic, dynamic> profile;
   final int index;
-  final Function(int, int?) onBannerTap;
+  final Function(int, int?) switchPage;
 
   final VoidCallback startRingAlgo;
 
@@ -96,9 +150,12 @@ class _BannerItemState extends State<BannerItem> {
   @override
   void initState() {  // This is called every time the page is rebuilt
     super.initState();
-    // WidgetsBinding.instance.addPostFrameCallback((_) async {  // After the page is fully built, the ring algo is used to continue getting profiles within the radius until the page is full
-    //   widget.startRingAlgo();
-    // });
+    WidgetsBinding.instance.addPostFrameCallback((_) async {  // After the page is fully built, the ring algo is used to continue getting profiles within the radius until the page is full
+      if (!startedRingAlgo) {  // This is starting multiple times bc the page is rebuilding when I scroll so this is a global bool for debugging
+        widget.startRingAlgo();  // This only goes once for now
+        startedRingAlgo = true;
+      }
+    });
   }
 
   @override
@@ -107,7 +164,7 @@ class _BannerItemState extends State<BannerItem> {
       padding: const EdgeInsets.only(top: 5, left: 10, right: 10),
       child: InkWell(
         onTap: () => setState(() => picsAreExpanded = !picsAreExpanded),
-        onDoubleTap: () => widget.onBannerTap(1, widget.index),
+        onDoubleTap: () => widget.switchPage(1, widget.index),
         onLongPress: () {
           setState(() {
             picsAreExpanded = true;

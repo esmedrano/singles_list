@@ -11,7 +11,7 @@ class DateSearch extends StatefulWidget {
 
   final ThemeData theme;
   final VoidCallback onToggleViewMode;
-  final VoidCallback addNewFilteredProfiles;
+  final Function(bool?) addNewFilteredProfiles;
 
   @override
   State<DateSearch> createState() => _DateSearchState();

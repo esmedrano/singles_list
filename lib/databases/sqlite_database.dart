@@ -35,14 +35,15 @@ class DatabaseHelper {
     ''');
     await db.execute('''
       CREATE TABLE profile_metadata (
-        user_id TEXT PRIMARY KEY,
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
         metadata TEXT
       )
     ''');
     await db.execute('''
       CREATE TABLE other_user_profiles (
         name TEXT PRIMARY KEY,
-        profile_data TEXT
+        profile_data TEXT,
+        created_at INTEGER
       )
     ''');
     await db.execute('''
@@ -61,15 +62,15 @@ class DatabaseHelper {
       )
     ''');
     await _initializeFilters(db);
-    //print('DatabaseHelper: Database created with initial filter values');
+    print('DatabaseHelper: Database created');
   }
 
   Future<void> _initializeFilters(Database db) async {
     await db.insert('filters', {'key': 'distance', 'value': '10 mi'}, conflictAlgorithm: ConflictAlgorithm.ignore);
     await db.insert('filters', {'key': 'ageMin', 'value': '18'}, conflictAlgorithm: ConflictAlgorithm.ignore);
-    await db.insert('filters', {'key': 'ageMax', 'value': '100'}, conflictAlgorithm: ConflictAlgorithm.ignore);
+    await db.insert('filters', {'key': 'ageMax', 'value': '50 +'}, conflictAlgorithm: ConflictAlgorithm.ignore);
     await db.insert('filters', {'key': 'heightMin', 'value': "3' 0\""}, conflictAlgorithm: ConflictAlgorithm.ignore);
-    await db.insert('filters', {'key': 'heightMax', 'value': "8' 0\""}, conflictAlgorithm: ConflictAlgorithm.ignore);
+    await db.insert('filters', {'key': 'heightMax', 'value': "7' 11\""}, conflictAlgorithm: ConflictAlgorithm.ignore);
     await db.insert('filters', {'key': 'children', 'value': jsonEncode([])}, conflictAlgorithm: ConflictAlgorithm.ignore);
     await db.insert('filters', {'key': 'relationshipIntent', 'value': jsonEncode([])}, conflictAlgorithm: ConflictAlgorithm.ignore);
     await db.insert('filters', {'key': 'personalityTypes', 'value': jsonEncode([])}, conflictAlgorithm: ConflictAlgorithm.ignore);
@@ -94,18 +95,16 @@ class DatabaseHelper {
     await _initializeFilters(db);
   }
 
-  Future<void> clearAllSettings() async {
+  Future<void> setHasLocation(bool value) async {
     try {
       final db = await database;
-      await db.delete('settings');
-      await db.delete('profile_metadata');
-      await db.delete('other_user_profiles');
-      await db.delete('filters');
-      await db.delete('cached_images');
-      await _initializeFilters(db);
-      //print('DatabaseHelper: Cleared all settings and cached images, re-initialized filters');
+      await db.insert(
+        'settings',
+        {'key': 'hasLocation', 'value': value.toString()},
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
     } catch (e) {
-      //print('DatabaseHelper: Error clearing tables: $e');
+      print('DatabaseHelper: Error saving hasLocation: $e');
     }
   }
 
@@ -117,25 +116,165 @@ class DatabaseHelper {
         where: 'key = ?',
         whereArgs: ['hasLocation'],
       );
-      //print('DatabaseHelper: getHasLocation returned ${result.isNotEmpty && result.first['value'] == 'true'}');
       return result.isNotEmpty && result.first['value'] == 'true';
     } catch (e) {
-      //print('DatabaseHelper: Error reading hasLocation: $e');
+      print('DatabaseHelper: Error reading hasLocation: $e');
       return false;
     }
   }
 
-  Future<void> setHasLocation(bool value) async {
+  Future<void> saveLastFirebaseProfile(Map<String, dynamic> lastProfile) async{  // Used to restart the ring algo from the correct profile
     try {
       final db = await database;
+      final jsonStringLastProfile = jsonEncode(lastProfile); // Convert map to JSON string
       await db.insert(
         'settings',
-        {'key': 'hasLocation', 'value': value.toString()},
+        {'key': 'lastProfile', 'value': jsonStringLastProfile},
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
-      //print('DatabaseHelper: Set hasLocation to $value');
     } catch (e) {
-      //print('DatabaseHelper: Error saving hasLocation: $e');
+      print('DatabaseHelper: Error saving lastProfile: $e');
+    }
+  }
+
+  Future<Map<String, dynamic>?> getLastFirebaseProfile() async {
+    try {
+      final db = await database;
+      final result = await db.query(
+        'settings',
+        where: 'key = ?',
+        whereArgs: ['lastProfile'],
+      );
+      if (result.isNotEmpty) {
+        final value = result.first['value'] as String?;
+        if (value != null && value.isNotEmpty) {
+          try {
+            final decoded = jsonDecode(value) as Map<String, dynamic>;
+            return decoded;
+          } catch (e) {
+            print('Error decoding JSON: $e');
+            return null;
+          }
+        }
+        print('Value is null or empty');
+        return null;
+      }
+      print('No results found for lastProfile');
+      return null;
+    } catch (e) {
+      print('DatabaseHelper: Error reading lastProfile: $e');
+      return null;
+    }
+  }
+
+  Future<void> saveRequeryBool(bool requeryBool) async{
+     try {
+      final db = await database;
+      final jsonString = jsonEncode(requeryBool); // Convert map to JSON string
+      await db.insert(
+        'settings',
+        {'key': 'requeryBool', 'value': jsonString},
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+      //print('DatabaseHelper: Saved last profile snapshot: $jsonString');
+    } catch (e) {
+      print('DatabaseHelper: Error saving lastProfile: $e');
+    }
+  }
+
+  Future<bool?> getRequeryBool() async{
+     try {
+      final db = await database;
+      final result = await db.query(
+        'settings',
+        where: 'key = ?',
+        whereArgs: ['requeryBool'],
+      );
+      if (result.isNotEmpty) {
+        final value = result.first['value'] as String?;
+        if (value != null && value.isNotEmpty) {
+          try {
+            final decoded = jsonDecode(value) as bool;
+            return decoded;
+          } catch (e) {
+            print('Error decoding JSON: $e');
+            return null;
+          }
+        }
+        print('Value is null or empty');
+        return null;
+      }
+      print('No results found for lastProfile');
+      return null;
+    } catch (e) {
+      print('DatabaseHelper: Error reading lastProfile: $e');
+      return null;
+    }
+  }
+
+  // Save a radius value to a list of radii in the database
+  Future<void> cacheCollectedRadiusArg(int value) async {
+    try {
+      final db = await database;
+
+      // Retrieve the existing list of radii
+      final List<Map<String, dynamic>> existingData = await db.query(
+        'settings',
+        where: 'key = ?',
+        whereArgs: ['cachedRadiusArgs'],
+      );
+
+      // Decode the existing list or create a new one
+      List<int> radii = [];
+      if (existingData.isNotEmpty) {
+        final String? storedValue = existingData.first['value'] as String?;
+        if (storedValue != null && storedValue.isNotEmpty) {
+          radii = List<int>.from(jsonDecode(storedValue));
+        }
+      }
+
+      // Add the new radius if it's not already in the list
+      if (!radii.contains(value)) {
+        radii.add(value);
+      }
+
+      // Save the updated list back to the database
+      await db.insert(
+        'settings',
+        {'key': 'cachedRadiusArgs', 'value': jsonEncode(radii)},
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+      // print('DatabaseHelper: Cached radius $value. Updated list: $radii');
+    } catch (e) {
+      // print('DatabaseHelper: Error saving radius: $e');
+    }
+  }
+
+  // Read the list of cached radii from the database
+  Future<List<int>> getCachedRadii() async {
+    try {
+      final db = await database;
+      final List<Map<String, dynamic>> result = await db.query(
+        'settings',
+        where: 'key = ?',
+        whereArgs: ['cachedRadiusArgs'],
+      );
+
+      if (result.isNotEmpty) {
+        final String? storedValue = result.first['value'] as String?;
+        if (storedValue != null && storedValue.isNotEmpty) {
+          try {
+            return List<int>.from(jsonDecode(storedValue).map((e) => e as int));
+          } catch (e) {
+            // Handle JSON decode or type cast error
+            return [];
+          }
+        }
+      }
+      return [];
+    } catch (e) {
+      // print('DatabaseHelper: Error reading cached radii: $e');
+      return [];
     }
   }
 
@@ -220,36 +359,41 @@ class DatabaseHelper {
     }
   }
 
-  Future<void> cacheUserMetadata(Map<String, dynamic> metadata) async {
+  Future<void> cacheUserMetadata(String key, Map<String, dynamic> data) async {
     try {
       final db = await database;
+      // Fetch existing metadata
+      final result = await db.query('profile_metadata', limit: 1);
+      Map<String, dynamic> existingMetadata = {};
+      if (result.isNotEmpty) {
+        existingMetadata = jsonDecode(result.first['metadata'] as String);
+      }
+      // Merge new data under the specified key
+      existingMetadata[key] = data;
       await db.insert(
         'profile_metadata',
-        {'metadata': jsonEncode(metadata)},
+        {'metadata': jsonEncode(existingMetadata)},
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
-      //print('DatabaseHelper: Cached metadata for user $userId');
+      print('DatabaseHelper: Cached metadata for key $key');
     } catch (e) {
-      //print('DatabaseHelper: Error caching profile metadata: $e');
+      print('DatabaseHelper: Error caching metadata for key $key: $e');
     }
   }
 
-  Future<Map<String, dynamic>?> getUserMetadata(String userId) async {
+  Future<Map<String, dynamic>?> getUserMetadata(String key) async {
     try {
       final db = await database;
-      final result = await db.query(
-        'profile_metadata',
-        where: 'user_id = ?',
-        whereArgs: [userId],
-      );
+      final result = await db.query('profile_metadata', limit: 1);
       if (result.isNotEmpty) {
-        //print('DatabaseHelper: Retrieved metadata for user $userId');
-        return jsonDecode(result.first['metadata'] as String);
+        final metadata = jsonDecode(result.first['metadata'] as String) as Map<String, dynamic>;
+        print('DatabaseHelper: Retrieved metadata for key $key');
+        return metadata[key] as Map<String, dynamic>?;
       }
-      //print('DatabaseHelper: No metadata found for user $userId');
+      print('DatabaseHelper: No metadata found for key $key');
       return null;
     } catch (e) {
-      //print('DatabaseHelper: Error reading profile metadata: $e');
+      print('DatabaseHelper: Error reading metadata for key $key: $e');
       return null;
     }
   }
@@ -264,6 +408,7 @@ class DatabaseHelper {
           {
             'name': profile['name'],
             'profile_data': jsonEncode(profile),
+            'created_at': DateTime.now().millisecondsSinceEpoch,
           },
           conflictAlgorithm: ConflictAlgorithm.replace,
         );
@@ -271,26 +416,29 @@ class DatabaseHelper {
       await batch.commit();
       //print('DatabaseHelper: Cached ${profiles.length} profiles');
     } catch (e) {
-      //print('DatabaseHelper: Error caching all other user profiles: $e');
+      print('DatabaseHelper: Error caching all other user profiles: $e');
     }
   }
 
-  Future<Map<String, dynamic>?> getProfile(String name, String tag) async {
+  Future<Map<dynamic, dynamic>?> getLastCachedProfile() async {
     try {
       final db = await database;
       final result = await db.query(
         'other_user_profiles',
-        where: 'name = ?',
-        whereArgs: [name],
+        orderBy: 'created_at DESC', // Order by id in descending order to get the last row
+        limit: 1, // Only need the last profile
       );
       if (result.isNotEmpty) {
-        //print('DatabaseHelper: Retrieved profile for name $name');
-        return jsonDecode(result.first['profile_data'] as String);
+        final profileDataJson = result[0]['profile_data'] as String;
+        final profileData = jsonDecode(profileDataJson) as Map<dynamic, dynamic>;
+        print('DatabaseHelper: Retrieved last profile: ${profileData['name']}');
+        return profileData;
       }
-      //print('DatabaseHelper: No profile found for name $name');
+      print('DatabaseHelper: No profiles found in other_user_profiles');
       return null;
-    } catch (e) {
-      //print('DatabaseHelper: Error reading other user profile: $e');
+    } 
+    catch (e) {
+      print('DatabaseHelper: Error reading last profile ID: $e');
       return null;
     }
   }
@@ -304,9 +452,9 @@ class DatabaseHelper {
         return [];
       }
       var profiles = result.map((row) => jsonDecode(row['profile_data'] as String) as Map<dynamic, dynamic>).toList();
-      //print('DatabaseHelper: Fetched ${profiles.length} profiles before filtering');
+      print('DatabaseHelper: Fetched ${profiles.length} profiles before filtering');
       profiles = await applyFilters(profiles);
-      //print('DatabaseHelper: After filtering, ${profiles.length} profiles remain');
+      print('DatabaseHelper: After filtering, ${profiles.length} profiles remain');
       final startIndex = (page - 1) * pageSize;
       final endIndex = startIndex + pageSize;
       //print('DatabaseHelper: Returning ${profiles.sublist(startIndex, endIndex.clamp(0, profiles.length)).length} profiles for page $page (startIndex: $startIndex, endIndex: $endIndex)');
@@ -318,7 +466,21 @@ class DatabaseHelper {
     }
   }
 
+  Future<int> getAllOtherUserProfilesCount() async {
+    try {
+      final db = await database;
+      final result = await db.rawQuery('SELECT COUNT(*) as count FROM other_user_profiles');
+      final count = Sqflite.firstIntValue(result) ?? 0;
+      // print('DatabaseHelper: Found $count profiles in other_user_profiles');
+      return count;
+    } catch (e) {
+      print('DatabaseHelper: Error counting profiles: $e');
+      return 0;
+    }
+  }
+
   Future<List<Map<dynamic, dynamic>>> applyFilters(List<Map<dynamic, dynamic>> profiles) async {
+    print('Applying filters');
     final distanceFilter = await getFilterValue('distance') ?? '10 mi';
     final ageMin = await getFilterValue('ageMin') ?? '18';
     final ageMax = await getFilterValue('ageMax') ?? '100';
@@ -338,7 +500,6 @@ class DatabaseHelper {
       if (distanceFilter != null) {
         final profileDistance = double.tryParse(profile['distance']?.replaceAll(' mi', '') ?? '0.0') ?? 0.0;
         final maxDistance = double.parse(distanceFilter.replaceAll(' mi', ''));
-        print('Max Distance: $maxDistance');
         matches = matches && profileDistance <= maxDistance;
       }
 
@@ -471,6 +632,28 @@ class DatabaseHelper {
     }
   }
 
+  Future<void> clearAllSettings() async {
+    try {
+      final db = await database;
+      await db.delete('settings');
+      await db.delete('profile_metadata');
+      await db.delete('other_user_profiles');
+      await db.delete('filters');
+      await db.delete('cached_images');
+      await _initializeFilters(db);
+      //print('DatabaseHelper: Cleared all settings and cached images, re-initialized filters');
+    } catch (e) {
+      //print('DatabaseHelper: Error clearing tables: $e');
+    }
+  }
+
+  Future<void> deleteDatabaseFile() async {
+    final path = join(await getDatabasesPath(), 'app_database.db');
+    await databaseFactory.deleteDatabase(path);
+    print('DatabaseHelper: Deleted database at $path');
+    _database = null; // Reset to force reinitialization
+  }
+
   Future<void> close() async {
     final db = await database;
     await db.close();
@@ -514,9 +697,9 @@ class DatabaseHelper {
 
       // Log all tables
       await printTable('settings');
-      await printTable('profile_metadata', decodeJson: true);
-      // await printTable('other_user_profiles', decodeJson: true);
-      // await printTable('filters', decodeJson: true);
+      //await printTable('profile_metadata', decodeJson: true);
+      //await printTable('other_user_profiles', decodeJson: true);
+      //await printTable('filters', decodeJson: true);
       // await printTable('cached_images');
 
       // Additional summary
@@ -531,185 +714,4 @@ class DatabaseHelper {
     }
     print('=== End SQLite Contents ===\n\n');
   }
-}
-
-// version 1
-/* import 'dart:convert';
-import 'package:sqflite/sqflite.dart';
-import 'package:path/path.dart';
-
-class DatabaseHelper {
-  static final DatabaseHelper instance = DatabaseHelper._init();
-  static Database? _database;
-
-  DatabaseHelper._init();
-
-  Future<Database> get database async {
-    if (_database != null) return _database!;
-    _database = await _initDB('app_database.db');
-    return _database!;
-  }
-
-  Future<Database> _initDB(String fileName) async {
-    final dbPath = await getDatabasesPath();
-    final path = join(dbPath, fileName);
-
-    return await openDatabase(
-      path,
-      version: 1,
-      onCreate: (db, version) async {
-        await db.execute('''
-          CREATE TABLE settings (
-            key TEXT PRIMARY KEY,
-            value TEXT
-          )
-        ''');
-        await db.execute('''
-          CREATE TABLE profile_metadata (
-            user_id TEXT PRIMARY KEY,
-            metadata TEXT
-          )
-        ''');
-        await db.execute('''
-          CREATE TABLE other_user_profiles (
-            name TEXT PRIMARY KEY,
-            profile_data TEXT
-          )
-        ''');
-      },
-    );
-  }
-
-  Future<void> clearAllSettings() async {
-    try {
-      final db = await database;
-      await db.delete('settings');
-      await db.delete('profile_metadata');
-      await db.delete('other_user_profiles');
-      //print('Cleared settings, profile_metadata, and other_user_profiles tables');
-    } catch (e) {
-      //print('Error clearing tables: $e');
-    }
-  }
-
-  Future<bool> getHasLocation() async {
-    try {
-      final db = await database;
-      final result = await db.query(
-        'settings',
-        where: 'key = ?',
-        whereArgs: ['hasLocation'],
-      );
-      return result.isNotEmpty && result.first['value'] == 'true';
-    } catch (e) {
-      //print('Error reading hasLocation: $e');
-      return false;
-    }
-  }
-
-  Future<void> setHasLocation(bool value) async {
-    try {
-      final db = await database;
-      await db.insert(
-        'settings',
-        {'key': 'hasLocation', 'value': value.toString()},
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
-      //print('Saved hasLocation: $value');
-    } catch (e) {
-      //print('Error saving hasLocation: $e');
-    }
-  }
-
-  // For app user's metadata (e.g., location)
-  Future<void> cacheUserMetadata(String userId, Map<String, dynamic> metadata) async {
-    try {
-      final db = await database;
-      await db.insert(
-        'profile_metadata',
-        {'user_id': userId, 'metadata': jsonEncode(metadata)},
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
-      //print('Cached profile metadata for user: $userId');
-    } catch (e) {
-      //print('Error caching profile metadata: $e');
-    }
-  }
-
-  Future<Map<String, dynamic>?> getUserMetadata(String userId) async {
-    try {
-      final db = await database;
-      final result = await db.query(
-        'profile_metadata',
-        where: 'user_id = ?',
-        whereArgs: [userId],
-      );
-      if (result.isNotEmpty) {
-        return jsonDecode(result.first['metadata'] as String);
-      }
-      return null;
-    } catch (e) {
-      //print('Error reading profile metadata: $e');
-      return null;
-    }
-  }
-
-  Future<void> cacheAllOtherUserProfiles(List<Map<dynamic, dynamic>> profiles) async {  // Batch cache allprofiles recieved from firestore 
-    try {
-      final db = await database;
-      final batch = db.batch();
-      for (var profile in profiles) {
-        batch.insert(
-          'other_user_profiles',
-          {
-            'name': profile['name'],
-            'profile_data': jsonEncode(profile),
-          },
-          conflictAlgorithm: ConflictAlgorithm.replace,
-        );
-      }
-      await batch.commit();
-      //print('Cached ${profiles.length} profiles in other_user_profiles');
-    } catch (e) {
-      //print('Error caching all other user profiles: $e');
-    }
-  }
-
-  Future<Map<String, dynamic>?> getProfile(String name, String tag) async {  // This will be the search and filter function
-    try {
-      final db = await database;
-      final result = await db.query(
-        'other_user_profiles',
-        where: 'name = ?',
-        whereArgs: [name],
-      );
-      if (result.isNotEmpty) {
-        return jsonDecode(result.first['profile_data'] as String);
-      }
-      return null;
-    } catch (e) {
-      //print('Error reading other user profile: $e');
-      return null;
-    }
-  }
-
-  Future<List<Map<dynamic, dynamic>>> getAllOtherUserProfiles() async {
-    try {
-      final db = await database;
-      final result = await db.query('other_user_profiles');
-      if (result.isEmpty) {
-        //print('other_user_profiles table is empty');
-        return [];
-      }
-      return result.map((row) => jsonDecode(row['profile_data'] as String) as Map<dynamic, dynamic>).toList();
-    } catch (e) {
-      //print('Error reading all other user profiles: $e');
-      return [];
-    }
-  }
-
-  Future<void> close() async {
-    final db = await database;
-    await db.close();
-  }
-} */
+} 

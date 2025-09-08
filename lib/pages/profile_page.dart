@@ -165,7 +165,9 @@ class _ProfilePageState extends State<ProfilePage> {
         debugPrint('Updating profile for user ${user.uid} with data: $data and phone number ${user.phoneNumber} at ${DateTime.now()}');
         await docRef.update(data);
       }
-      await DatabaseHelper.instance.cacheUserMetadata(data);
+      
+      await DatabaseHelper.instance.cacheUserMetadata('profileData', data);
+
       setState(() {
         _originalProfileVerified = profileVerified;
         _originalIntro = _controller.text;
@@ -203,7 +205,7 @@ class _ProfilePageState extends State<ProfilePage> {
       );
       return;
     }
-    final metadata = await DatabaseHelper.instance.getUserMetadata(user.uid);
+    final metadata = await DatabaseHelper.instance.getUserMetadata('profileData');
     if (metadata != null) {
       setState(() {
         profileVerified = metadata['verified'] ?? false;

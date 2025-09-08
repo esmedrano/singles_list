@@ -4,6 +4,7 @@ import 'dart:async';
 import 'dart:io';
 import 'package:integra_date/databases/sqlite_database.dart' as sqlite;
 import 'package:integra_date/widgets/share_popup.dart';
+import 'package:integra_date/widgets/pagination_buttons.dart';
 
 class BoxView extends StatefulWidget {
   const BoxView({
@@ -13,6 +14,13 @@ class BoxView extends StatefulWidget {
     required this.isLoading,
     required this.initialOffset,
     required this.switchPage,
+
+    required this.currentPage,
+    required this.hasPreviousPage,
+    required this.hasNextPage,
+    required this.onPreviousPage,
+    required this.onNextPage,
+    required this.pageCount,
   });
 
   final ScrollController scrollController;
@@ -20,6 +28,13 @@ class BoxView extends StatefulWidget {
   final bool isLoading;
   final double initialOffset;
   final Function(int, int?) switchPage;
+
+  final int currentPage;
+  final bool hasPreviousPage;
+  final bool hasNextPage;
+  final Function([int?]) onPreviousPage;
+  final Function([int?]) onNextPage;
+  final int pageCount;
 
   @override
   _BoxViewState createState() => _BoxViewState();
@@ -45,6 +60,10 @@ class _BoxViewState extends State<BoxView> with TickerProviderStateMixin {
   bool _isBuilding = false;
   bool recalculateOffset = false;
 
+  bool finalGridItemBuilt = false;
+
+  bool _isAtBottom = false; // Track if scrolled to bottom
+
   @override
   void initState() {
     super.initState();
@@ -53,6 +72,29 @@ class _BoxViewState extends State<BoxView> with TickerProviderStateMixin {
       duration: const Duration(milliseconds: 500),
       vsync: this,
     );
+
+    widget.scrollController.addListener(_checkIfScrolledToBottom);
+  }
+
+  void _checkIfScrolledToBottom() {  // This is for the pagination buttons.
+    if (!widget.scrollController.hasClients) return;
+
+    final offset = widget.scrollController.offset;
+    final maxScrollExtent = widget.scrollController.position.maxScrollExtent;
+    const threshold = 150.0; // Small threshold for floating-point precision
+
+    bool isAtBottom = offset >= maxScrollExtent - 100;
+
+    if (isAtBottom != _isAtBottom) {
+      setState(() {
+        _isAtBottom = isAtBottom;
+      });
+      if (isAtBottom) {
+        print('Scrolled to bottom of GridView');
+        // Optionally trigger an action, e.g., fetch more profiles
+        // widget.onNextPage(); // Example: Load next page
+      }
+    }
   }
 
   SliverGridDelegate _buildGridDelegate() {
@@ -215,127 +257,189 @@ class _BoxViewState extends State<BoxView> with TickerProviderStateMixin {
   void dispose() {
     _animationController?.dispose();
     _debounceTimer?.cancel();
+    widget.scrollController.removeListener(_checkIfScrolledToBottom);    
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     _isBuilding = true;
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        const crossAxisSpacing = 2.0;
-        final oneColumnItemWidth = constraints.maxWidth;
-        final baseTotalSpacing = crossAxisSpacing * (_baseColumnCount - 1);
-        final baseGridItemWidth = (constraints.maxWidth - baseTotalSpacing) / _baseColumnCount;
-        final fiveColumnTotalSpacing = crossAxisSpacing * (5 - 1);
-        final fiveColumnItemWidth = (constraints.maxWidth - fiveColumnTotalSpacing) / 5;
-
-        final gridItemWidth = _crossAxisCount == 5 && _scale <= _minScale
-            ? fiveColumnItemWidth
-            : _crossAxisCount == 1 && _scale >= _maxScale
-                ? oneColumnItemWidth
-                : baseGridItemWidth;
-
-        double scaleFactor;
-        if (_crossAxisCount == 5) {
-          scaleFactor = _scale <= _minScale ? 1.0 : lerpDouble(1.0, 1.65, (_scale - _minScale) / (4.0 - _minScale))!;
-        } else if (_crossAxisCount == 3 && _scale > 4.0) {
-          scaleFactor = lerpDouble(1.0, 3.5, (_scale - 4.0) / (_maxScale - 4.0))!;
-        } else if (_crossAxisCount == 1) {
-          scaleFactor = _scale >= _maxScale ? 1.0 : lerpDouble(0.5, 1.0, (_scale - 4.0) / (_maxScale - 4.0))!;
-        } else {
-          scaleFactor = _scale / 4.0;
-        }
-
-        return FutureBuilder<List<Map<dynamic, dynamic>>>(
-          future: widget.profileData,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
-            } else if (snapshot.hasError) {
-              return Center(child: Text('Error: ${snapshot.error}'));
-            } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-              return const Center(child: Text('No profiles available'));
-            }
-
-            final profiles = snapshot.data!;
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (widget.scrollController.hasClients &&
-                  widget.scrollController.offset != _initialOffset &&
-                  !jumpedOnce &&
-                  _initialOffset != 0) {
-                widget.scrollController.jumpTo(
-                  _initialOffset.clamp(0.0, widget.scrollController.position.maxScrollExtent),
-                );
-                jumpedOnce = true;
+    return Column(
+      children: [
+        Expanded(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              const crossAxisSpacing = 2.0;
+              final oneColumnItemWidth = constraints.maxWidth;
+              final baseTotalSpacing = crossAxisSpacing * (_baseColumnCount - 1);
+              final baseGridItemWidth = (constraints.maxWidth - baseTotalSpacing) / _baseColumnCount;
+              final fiveColumnTotalSpacing = crossAxisSpacing * (5 - 1);
+              final fiveColumnItemWidth = (constraints.maxWidth - fiveColumnTotalSpacing) / 5;
+          
+              final gridItemWidth = _crossAxisCount == 5 && _scale <= _minScale
+                  ? fiveColumnItemWidth
+                  : _crossAxisCount == 1 && _scale >= _maxScale
+                      ? oneColumnItemWidth
+                      : baseGridItemWidth;
+          
+              double scaleFactor;
+              if (_crossAxisCount == 5) {
+                scaleFactor = _scale <= _minScale ? 1.0 : lerpDouble(1.0, 1.65, (_scale - _minScale) / (4.0 - _minScale))!;
+              } else if (_crossAxisCount == 3 && _scale > 4.0) {
+                scaleFactor = lerpDouble(1.0, 3.5, (_scale - 4.0) / (_maxScale - 4.0))!;
+              } else if (_crossAxisCount == 1) {
+                scaleFactor = _scale >= _maxScale ? 1.0 : lerpDouble(0.5, 1.0, (_scale - 4.0) / (_maxScale - 4.0))!;
+              } else {
+                scaleFactor = _scale / 4.0;
               }
-              _isBuilding = false;
-            });
+          
+              return FutureBuilder<List<Map<dynamic, dynamic>>>(
+                future: widget.profileData,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  } else if (snapshot.hasError) {
+                    return Center(child: Text('Error: ${snapshot.error}'));
+                  } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                    return const Center(child: Text('No profiles available'));
+                  }
+          
+                  final profiles = snapshot.data!;
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (widget.scrollController.hasClients &&
+                        widget.scrollController.offset != _initialOffset &&
+                        !jumpedOnce &&
+                        _initialOffset != 0) {
+                      widget.scrollController.jumpTo(
+                        _initialOffset.clamp(0.0, widget.scrollController.position.maxScrollExtent),
+                      );
+                      jumpedOnce = true;
+                    }
+                    _isBuilding = false;
+                  });
+          
+                  return Listener(
+                    onPointerDown: (event) {
+                      setState(() {
+                        _pointerCount += 1;
+                        _isPinching = _pointerCount >= 2;
+                      });
+                    },
+                    onPointerUp: (event) {
+                      setState(() {
+                        _pointerCount = (_pointerCount - 1).clamp(0, 10);
+                        _isPinching = _pointerCount >= 2;
+                      });
+                    },
+                    onPointerCancel: (event) {
+                      setState(() {
+                        _pointerCount = (_pointerCount - 1).clamp(0, 10);
+                        _isPinching = _pointerCount >= 2;
+                      });
+                    },
+                    child: GestureDetector(
+                      onScaleStart: _onScaleStart,
+                      onScaleUpdate: _onScaleUpdate,
+                      onScaleEnd: _onScaleEnd,
+                      onDoubleTap: _pointerCount == 1 ? _toggleZoom : null,
+                      behavior: HitTestBehavior.translucent,
+                      child: NotificationListener<ScrollNotification>(
+                        onNotification: (scrollNotification) => _isPinching,
+                        child: ClipRect(
+                          child: Transform.scale(
+                            scale: scaleFactor,
+                            alignment: Alignment.center,
+                            child: Column(
+                              children: [
+                                Expanded(
+                                  child: GridView.builder(
+                                    physics: _isPinching
+                                        ? const NeverScrollableScrollPhysics()
+                                        : const AlwaysScrollableScrollPhysics(),
+                                    padding: const EdgeInsets.only(top: 30),
+                                    controller: widget.scrollController,
+                                    itemCount: profiles.length + (widget.isLoading ? 1 : 0),
+                                    gridDelegate: _buildGridDelegate(),
+                                    itemBuilder: (context, index) {
+                                      if (index == profiles.length - 1) {
+                                        // SizedBox(height: 150);
+                                        //return const Center(child: CircularProgressIndicator());  //this blocks the last grid item////////////////////////////////////////////////
+                                      }
+                                      return AnimatedContainer(
+                                        duration: const Duration(milliseconds: 300),
+                                        curve: Curves.easeInOut,
+                                        child: ProfileGridItem(
+                                          profile: profiles[index],
+                                          gridItemWidth: gridItemWidth,
+                                          index: index,
+                                          onBannerTap: widget.switchPage,
+                                          isPinching: _isPinching,
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ),
 
-            return Listener(
-              onPointerDown: (event) {
-                setState(() {
-                  _pointerCount += 1;
-                  _isPinching = _pointerCount >= 2;
-                });
-              },
-              onPointerUp: (event) {
-                setState(() {
-                  _pointerCount = (_pointerCount - 1).clamp(0, 10);
-                  _isPinching = _pointerCount >= 2;
-                });
-              },
-              onPointerCancel: (event) {
-                setState(() {
-                  _pointerCount = (_pointerCount - 1).clamp(0, 10);
-                  _isPinching = _pointerCount >= 2;
-                });
-              },
-              child: GestureDetector(
-                onScaleStart: _onScaleStart,
-                onScaleUpdate: _onScaleUpdate,
-                onScaleEnd: _onScaleEnd,
-                onDoubleTap: _pointerCount == 1 ? _toggleZoom : null,
-                behavior: HitTestBehavior.translucent,
-                child: NotificationListener<ScrollNotification>(
-                  onNotification: (scrollNotification) => _isPinching,
-                  child: ClipRect(
-                    child: Transform.scale(
-                      scale: scaleFactor,
-                      alignment: Alignment.center,
-                      child: GridView.builder(
-                        physics: _isPinching
-                            ? const NeverScrollableScrollPhysics()
-                            : const AlwaysScrollableScrollPhysics(),
-                        padding: const EdgeInsets.only(top: 30),
-                        controller: widget.scrollController,
-                        itemCount: profiles.length + (widget.isLoading ? 1 : 0),
-                        gridDelegate: _buildGridDelegate(),
-                        itemBuilder: (context, index) {
-                          if (index == profiles.length) {
-                            return const Center(child: CircularProgressIndicator());
-                          }
-                          return AnimatedContainer(
-                            duration: const Duration(milliseconds: 300),
-                            curve: Curves.easeInOut,
-                            child: ProfileGridItem(
-                              profile: profiles[index],
-                              gridItemWidth: gridItemWidth,
-                              index: index,
-                              onBannerTap: widget.switchPage,
-                              isPinching: _isPinching,
+                                if (_isAtBottom && !widget.isLoading)
+
+                                PaginationButtons(  // Add paginationbuttons after the gridBuilder but only if the grid is scrolled far enough 
+                                  currentPage: widget.currentPage,
+                                  hasPreviousPage: widget.hasPreviousPage,
+                                  hasNextPage: widget.hasNextPage,
+                                  onPreviousPage: ([int]) {
+                                    widget.onPreviousPage();
+                                    // setState(() {
+                                    //   listViewOffset = 0.0;
+                                    //   gridViewOffset = 0.0;
+                                    //   firstVisibleIndex = 0;
+                                    // });
+                                  },
+                                  onNextPage: ([int]) {
+                                    widget.onNextPage();
+                                    // setState(() {
+                                    //   listViewOffset = 0.0;
+                                    //   gridViewOffset = 0.0;
+                                    //   firstVisibleIndex = 0;
+                                    // });
+                                  },
+                                  pageCount: widget.pageCount,
+                                )
+                              ],
                             ),
-                          );
-                        },
+                          ),
+                        ),
                       ),
                     ),
-                  ),
-                ),
-              ),
-            );
-          },
-        );
-      },
+                  );
+                },
+              );
+            },
+          ),
+        ),
+
+        // if (finalGridItemBuilt)
+        // PaginationButtons(
+        //   currentPage: widget.currentPage,
+        //   hasPreviousPage: widget.hasPreviousPage,
+        //   hasNextPage: widget.hasNextPage,
+        //   onPreviousPage: () {
+        //     widget.onPreviousPage();
+        //     // setState(() {
+        //     //   listViewOffset = 0.0;
+        //     //   gridViewOffset = 0.0;
+        //     //   firstVisibleIndex = 0;
+        //     // });
+        //   },
+        //   onNextPage: () {
+        //     widget.onNextPage();
+        //     // setState(() {
+        //     //   listViewOffset = 0.0;
+        //     //   gridViewOffset = 0.0;
+        //     //   firstVisibleIndex = 0;
+        //     // });
+        //   },
+        // )
+      ],
     );
   }
 }
@@ -430,7 +534,7 @@ class _ProfileGridItemState extends State<ProfileGridItem> {
                     ),
                   ),
                 ),
-                Positioned(
+                Positioned(  // Information popup for each grid item
                   bottom: 0,
                   left: 1,
                   child: AnimatedSlide(
@@ -500,6 +604,7 @@ class _ProfileGridItemState extends State<ProfileGridItem> {
       ),
     );
   }
+
   Future<String?> _getImagePath(
       String? imagePath, String profileId, BuildContext context) async {
     if (imagePath == null || !File(imagePath).existsSync()) {

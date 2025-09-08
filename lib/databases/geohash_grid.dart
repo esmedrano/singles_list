@@ -10,7 +10,7 @@ List<dynamic> test(String centerGeohash) {
   return geohashes;
 }
 
-String getTargetGeohash(double lat1, double lon1, double radiusMiles) {
+Future<String> getTargetGeohash(double lat1, double lon1, int radiusMiles) async{  // This finds a hash radius miles due north of the user's location
   final geohasher = GeoHasher();
 
   // Earth's radius in meters
@@ -24,7 +24,8 @@ String getTargetGeohash(double lat1, double lon1, double radiusMiles) {
   final double bearingRad = bearingDeg * pi / 180;
 
   // Convert radius from miles to meters
-  double radiusMeters = radiusMiles / 0.000621371;
+  double doubleRadiusMiles = radiusMiles.toDouble();
+  double radiusMeters = doubleRadiusMiles / 0.000621371;
 
   // Distance as a fraction of Earth's radius
   final double dR = radiusMeters / R;
@@ -49,23 +50,31 @@ String getTargetGeohash(double lat1, double lon1, double radiusMiles) {
   // Normalize longitude to [-180, 180]
   final double lon2Normalized = ((lon2 + 180) % 360) - 180;
 
-  final targetGeohash = geohasher.encode(lon2Normalized, lat2, precision: 6);
+  final targetGeohash = geohasher.encode(lon2Normalized, lat2, precision: 5);
 
   return targetGeohash;
 }
 
-Future<List<dynamic>> collectGeohashesInRings(double latitude, double longitude, double radiusMiles, String centerGeohash) async{
+Future<List<List<String>>> collectGeohashesInRings(double latitude, double longitude, int radiusMiles, String p6UserHash) async{
   final List<List<String>> geohashes = [[]];  // First empty list is the first ring container
   final geohasher = GeoHasher();
   var currentRing = [];
 
-  // String centerGeohash = geohasher.encode(longitude, latitude, precision: 6); 
-  print('User geohash from geohash_grid.dart $centerGeohash');
+  // Be sure to start with collecting 5p rings. The user hash is always 6, so shorten it here:
+  String p5CentralHash = p6UserHash.substring(0, 5);  // indeces 0-4 
 
-  String targetGeohash = getTargetGeohash(latitude, longitude, radiusMiles);  // Find the geohash due north that is radius miles from the central hash
+  // If statement required to set central hash to 6 precision if 5 precision contains too many profiles:
+
+  ///////////////////////
+  
+  ///////////////////////
+
+  // String centerGeohash = geohasher.encode(longitude, latitude, precision: 6); 
+
+  String targetGeohash = await getTargetGeohash(latitude, longitude, radiusMiles);  // Find the geohash due north that is radius miles from the central hash
   bool findingTargetHash = true;  // While loop state management
 
-  Map centralNeighbors = geohasher.neighbors(centerGeohash);  // Get the first ring of neighbors
+  Map centralNeighbors = geohasher.neighbors(p5CentralHash);  // Get the first ring of neighbors
   
   // Reorder the neighbors bc they typically start at NORTH, go clockwise, and then add the central hash as the last entry
   geohashes[0].addAll([  // This function adds all the indeces of the iterable to the first list in the list of lists [['NORTHWEST', 'NORTH', ...]]
@@ -98,7 +107,6 @@ Future<List<dynamic>> collectGeohashesInRings(double latitude, double longitude,
     int bottomLeftCorner = hashesPerSide * 3 + 3; 
 
     int hashCounter = 0;
-    print('collecting ring $ring');
     for (var gh in currentRing) {  // There are 8 sides to every ring and 8 cases to check for to no which neighbors to add to the next ring
       final neighbors = geohasher.neighbors(gh); // Get 8 neighbors of next hash in this ring but only add hashes to the next ring once
       //print(gh);
@@ -152,7 +160,9 @@ Future<List<dynamic>> collectGeohashesInRings(double latitude, double longitude,
     
     // adjust next ring to start at top left corner
     List<String?> trueNextRing = [...nextRing.sublist(1), nextRing.first];
-
+    
+    //print(currentRing);
+    
     currentRing = trueNextRing.where((item) => item != null).cast<String>().toList();  // takes each item out of the list and if ti is not null then it casts as a string and puts it into another list        
     
     ring ++;      

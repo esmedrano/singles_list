@@ -15,7 +15,7 @@ class SwipePage extends StatefulWidget {
   final Future<List<Map<dynamic, dynamic>>> profiles;
   final int? databaseIndex;
 
-  final VoidCallback addNewFilteredProfiles;
+  final Function(bool?) addNewFilteredProfiles;
 
   @override
   SwipePageState createState() => SwipePageState();
@@ -36,6 +36,8 @@ class SwipePageState extends State<SwipePage> {
 
   @override
   Widget build(BuildContext context) {
+    // print('Swipe page building now!');
+
     List<Map<dynamic, dynamic>> profiles = [];
 
     void nextProfile() {

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:integra_date/widgets/database_page_widgets/search_bar.dart' as search_bar;
 import 'package:integra_date/widgets/database_page_widgets/banner_view.dart' as banner_view;
 import 'package:integra_date/widgets/database_page_widgets/grid_view.dart' as grid_view;
-import 'package:integra_date/widgets/pagination_buttons.dart';
 
 // only for temp buttons
 import 'package:integra_date/databases/sqlite_database.dart' as sqlite;
@@ -19,6 +18,7 @@ class DatabasePage extends StatefulWidget {
     required this.hasNextPage,
     required this.onPreviousPage,
     required this.onNextPage,
+    required this.pageCount,
 
     required this.addNewFilteredProfiles,  // From navigation_bar.dart. Updates the page with filtered profiles
     required this.startRingAlgo  // From navigation_bar.dart. Updates the page with profiles after the ring algo query completes for the radius set in filters
@@ -30,10 +30,11 @@ class DatabasePage extends StatefulWidget {
   final int currentPage;
   final bool hasPreviousPage;
   final bool hasNextPage;
-  final VoidCallback onPreviousPage;
-  final VoidCallback onNextPage;
+  final Function([int?]) onPreviousPage;
+  final Function([int?]) onNextPage;
+  final int pageCount;
 
-  final VoidCallback addNewFilteredProfiles;
+  final Function(bool?) addNewFilteredProfiles;
   final VoidCallback startRingAlgo;
 
   @override
@@ -145,7 +146,14 @@ class _DatabasePageState extends State<DatabasePage> {
                   isLoading: isLoading,
                   initialOffset: listViewOffset,
                   switchPage: widget.switchPage,
-                  startRingAlgo: widget.startRingAlgo  //add this to grid and profile page//////////////////////////////////////////////////////////////// 
+                  startRingAlgo: widget.startRingAlgo,  //add this to grid and profile page//////////////////////////////////////////////////////////////// 
+
+                  currentPage: widget.currentPage,
+                  hasPreviousPage: widget.hasPreviousPage,
+                  hasNextPage: widget.hasNextPage,
+                  onPreviousPage: widget.onPreviousPage,
+                  onNextPage: widget.onNextPage,
+                  pageCount: widget.pageCount,
                 )
               : grid_view.BoxView(
                   scrollController: _scrollController,
@@ -153,29 +161,16 @@ class _DatabasePageState extends State<DatabasePage> {
                   isLoading: isLoading,
                   initialOffset: gridViewOffset,
                   switchPage: widget.switchPage,
+
+                  currentPage: widget.currentPage,
+                  hasPreviousPage: widget.hasPreviousPage,
+                  hasNextPage: widget.hasNextPage,
+                  onPreviousPage: widget.onPreviousPage,
+                  onNextPage: widget.onNextPage,
+                  pageCount: widget.pageCount,
                 ),
         ),
-        PaginationButtons(
-          currentPage: widget.currentPage,
-          hasPreviousPage: widget.hasPreviousPage,
-          hasNextPage: widget.hasNextPage,
-          onPreviousPage: () {
-            widget.onPreviousPage();
-            setState(() {
-              listViewOffset = 0.0;
-              gridViewOffset = 0.0;
-              firstVisibleIndex = 0;
-            });
-          },
-          onNextPage: () {
-            widget.onNextPage();
-            setState(() {
-              listViewOffset = 0.0;
-              gridViewOffset = 0.0;
-              firstVisibleIndex = 0;
-            });
-          },
-        ),
+        // Pagination buttons used to be here
       ],
     );
   }

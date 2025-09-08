@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-// import 'package:flutter/rendering.dart';
+// import 'package:flutter/rendering.dart'
 import 'package:flutter/cupertino.dart'; 
 import 'package:integra_date/widgets/navigation_bar.dart' as navigation_bar;
 
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart'; // Generated file after Firebase setup
-//import 'package:firebase_app_check/firebase_app_check.dart';
+//import 'package:firebase_app_check/firebase_app_check.dart';w
 
 // Emulators
 import 'package:cloud_firestore/cloud_firestore.dart';
