@@ -105,7 +105,7 @@ class _NavigationBarState extends State<PageSelectBar> {
     final user = FirebaseAuth.instance.currentUser;
     //final user = null;
 
-    print('Firestore instance: ${FirebaseFirestore.instance.app.name}');
+    // print('Firestore instance: ${FirebaseFirestore.instance.app.name}');
 
     setState(() {
       loggedIn = user != null;
@@ -113,9 +113,11 @@ class _NavigationBarState extends State<PageSelectBar> {
         print('Authenticated user UID: ${user!.uid}');
 
         // Initialize DeepLinkHandler
-        final deepLinkHandler = create_profile_url.DeepLinkHandler();
+        final deepLinkHandler = create_profile_url.DeepLinkHandler(switchPage: switchPage);
         FirebaseAnalytics.instance.logAppOpen(); // Track app open  // This can be waited on (future) but im testing it without
         deepLinkHandler.initDeepLinks();
+
+        //deepLinkHandler.handleDeepLink(('https://integridate.web.app/user_ids/5678902102') as Uri);
 
         currentPageIndex = 0;
         navBarIndex = 0;
@@ -390,7 +392,7 @@ class _NavigationBarState extends State<PageSelectBar> {
         checkAndSetLogInState();
       }
       if (pageIndex == 1 && profileFromSearch != null) {
-        print('switchPage() setting searchedProfile');
+        print('switchPage() setting searchedProfile: $profileFromSearch');
         searchedProfile = profileFromSearch;
       }
       if (pageIndex >= 0 && pageIndex <= 3) {  // Nav bar pages

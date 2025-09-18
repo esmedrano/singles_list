@@ -22,9 +22,9 @@ void main() async {
   await FirebaseStorage.instance.useStorageEmulator('192.168.1.153', 9199);
   await FirebaseAuth.instance.useAuthEmulator('192.168.1.153', 9099);
 
-  await sqlite.DatabaseHelper.instance.clearCachedImages(); //////////////////////////////////////////////////////////////////////////////////////////
-  await sqlite.DatabaseHelper.instance.clearAllSettings(); // Clears profiles too
-  await sqlite.DatabaseHelper.instance.deleteDatabaseFile();
+  // await sqlite.DatabaseHelper.instance.clearCachedImages(); //////////////////////////////////////////////////////////////////////////////////////////
+  // await sqlite.DatabaseHelper.instance.clearAllSettings(); // Clears profiles too
+  // await sqlite.DatabaseHelper.instance.deleteDatabaseFile();
 
   await sqlite.DatabaseHelper.instance.setUserDocTitle('CqN9BUUjYFA');  //123 123 1231  // This is to reset the user doc title in sqlite when it is cleared
   runApp(const MyApp());

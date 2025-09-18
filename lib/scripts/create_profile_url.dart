@@ -12,11 +12,16 @@ class DeepLinkHandler {
   StreamSubscription<Uri>? _linkSubscription;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
+  final Function(int, int?, Map<dynamic, dynamic>?)? switchPage; // Callback function
+
+  // Constructor with callback
+  DeepLinkHandler({this.switchPage});
+
   // Move to lib/config.dart for production
   static const String firebaseApiKey = 'AIzaSyAHNWbZrrLelgreM4SQkgw5bymcF9zQigI'; // Replace with your key
 
   static Future<String> createProfileDynamicLink(String userId) async {
-    const String baseUrl = 'https://integridate.web.app/user_ids/+11231231231/uid';
+    const String baseUrl = 'https://integridate.web.app/user_ids';
     final String longUrl = '$baseUrl/$userId';
     try {
       final response = await http.post(
@@ -43,7 +48,7 @@ class DeepLinkHandler {
     }
   }
 
-  static Future<void> shareProfileLink(String userId) async {
+  Future<void> shareProfileLink(String userId) async {
     final String link = await createProfileDynamicLink(userId);
     await Clipboard.setData(ClipboardData(text: link));
     await FirebaseAnalytics.instance.logShare(
@@ -61,18 +66,18 @@ class DeepLinkHandler {
       final Uri? initialLink = await _appLinks.getInitialLink(); // Correct method
       print('got init link: $initialLink');
       if (initialLink != null) {
-        _handleDeepLink(initialLink);
+        handleDeepLink(initialLink);
       }
     } catch (e) {
       print('Error getting initial link: $e');
     }
 
     // Handle ongoing links when app is in foreground
-    _linkSubscription = _appLinks.uriLinkStream.listen(
+    _linkSubscription = _appLinks.uriLinkStream.listen(  // CHECK does this cost money?
       (Uri? uri) {
         if (uri != null) {
           print('naving to deep link: $uri');
-          _handleDeepLink(uri);
+          handleDeepLink(uri);
         }
       },
       onError: (err) {
@@ -81,19 +86,20 @@ class DeepLinkHandler {
     );
   }
 
-  Future<void> _handleDeepLink(Uri deepLink) async {
+  Future<void> handleDeepLink(Uri deepLink) async {
     if (deepLink.path.contains('/user_ids')) {
-      String docTitle = await sqlite.DatabaseHelper.instance.getUserDocTitle();
-      final docRef = _firestore.collection('user_ids').doc(docTitle);
-      final docSnap = await docRef.get();
+      String docTitle = deepLink.pathSegments.last;  // Get the doc title that just so happens to be in the deep link
+      final docRef = _firestore.collection('user_ids').doc(docTitle);  // Create the doc ref for the firebase query
+      final docSnap = await docRef.get();  // Get the profile from firebase
       if (docSnap.exists) {
-        final userData = docSnap.data() as Map<String, dynamic>;
-        await FirebaseAnalytics.instance.logEvent(
-          name: 'open_profile',
+        final userData = docSnap.data() as Map<dynamic, dynamic>;
+        await FirebaseAnalytics.instance.logEvent(  // Log the event to the analytics page
+          name: 'open_profile_with_link',
           parameters: {'docTitle': docTitle},
         );
-        print('Navigating to profile: $docTitle, Data: $userData');
-        // Navigate: Navigator.pushNamed(context, '/profile', arguments: userData);
+        Map<dynamic, dynamic> profile = {'name': userData['name'], 'profile_data': userData};
+        print('Navigating to profile: $docTitle, Data: $userData');  
+        switchPage!(1, null, profile);  // Navigate to the profile in swipe view
       } else {
         print('Profile not found for UID: $docTitle');
       }

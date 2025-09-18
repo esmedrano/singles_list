@@ -3,6 +3,7 @@ import 'package:integra_date/widgets/database_page_widgets/banner_view.dart'; //
 
 import 'dart:io';
 import 'package:integra_date/databases/sqlite_database.dart' as sqlite;
+import 'package:integra_date/scripts/create_profile_url.dart' as create_profile_url;
 
 void showProfileDialog({
   required BuildContext context,
@@ -15,6 +16,8 @@ void showProfileDialog({
   final imageKey = GlobalKey();
   bool isMenuVisible = true;
   OverlayEntry? menuOverlay;
+
+  final deepLinkHandler = create_profile_url.DeepLinkHandler();
 
   showDialog(
     context: context,
@@ -117,9 +120,10 @@ void showProfileDialog({
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         ListTile(
-                          title: const Text('Action 1'),
+                          title: const Text('copy link to profile'),
                           onTap: () {
-                            onMenuAction('action1');
+                            onMenuAction('copy link to profile');
+                            deepLinkHandler.shareProfileLink(profileId);
                             menuOverlay?.remove();
                             isMenuVisible = false;
                             Navigator.of(context).pop();
@@ -184,6 +188,8 @@ void showBannerDialog({
   final bannerKey = GlobalKey();
   bool isMenuVisible = true;
   OverlayEntry? menuOverlay;
+
+  final deepLinkHandler = create_profile_url.DeepLinkHandler();
 
   showDialog(
     context: context,
@@ -269,9 +275,10 @@ void showBannerDialog({
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         ListTile(
-                          title: const Text('Action 1'),
+                          title: const Text('copy link to profile'),
                           onTap: () {
-                            onMenuAction('action1');
+                            onMenuAction('copy link to profile');
+                            deepLinkHandler.shareProfileLink(profile['hashedId']);
                             menuOverlay?.remove();
                             isMenuVisible = false;
                             Navigator.of(context).pop();
