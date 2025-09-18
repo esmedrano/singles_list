@@ -5,6 +5,44 @@ import 'package:flutter/services.dart';
 import 'dart:async';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
+import 'package:integra_date/databases/sqlite_database.dart' as sqlite;
+
+import 'dart:convert';
+import 'package:crypto/crypto.dart';
+
+String generatePhoneHash(String phoneNumber) {
+  // Validate input
+  if (phoneNumber.isEmpty || phoneNumber.trim().isEmpty) {
+    throw ArgumentError('Phone number must be a non-empty string');
+  }
+
+  // Normalize phone number: remove non-digit characters
+  String normalizedPhone = phoneNumber.replaceAll(RegExp(r'[^0-9]'), '');
+
+  if (normalizedPhone.isEmpty) {
+    throw ArgumentError('Phone number contains no digits');
+  }
+
+  // For test data, use last 10 digits if sequential and unique
+  if (normalizedPhone.startsWith('123456789')) {
+    return normalizedPhone.substring(normalizedPhone.length - 10); // e.g., "1234567890"
+  }
+
+  // General case: SHA-256 hash, take first 8 bytes (64 bits), encode to base62
+  List<int> bytes = utf8.encode(normalizedPhone);
+  Digest digest = sha256.convert(bytes);
+  List<int> truncated = digest.bytes.sublist(0, 8); // First 8 bytes (64 bits)
+
+  const String base62 = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+  BigInt num = BigInt.parse(truncated.map((b) => b.toRadixString(16).padLeft(2, '0')).join(), radix: 16);
+  String result = '';
+  while (num > BigInt.zero) {
+    result = base62[(num % BigInt.from(62)).toInt()] + result;
+    num = num ~/ BigInt.from(62);
+  }
+  // Pad or truncate to ~10-12 characters
+  return result.padLeft(11, '0').substring(0, 11);
+}
 
 // Custom TextInputFormatter for phone number formatting
 class PhoneNumberFormatter extends TextInputFormatter {
@@ -53,8 +91,8 @@ class _LogInState extends State<LogIn> {
   @override
   void initState() {
     super.initState();
-    // Connect to Firebase Emulator
-    FirebaseAuth.instance.useAuthEmulator('192.168.1.153', 9099);
+    // // Connect to Firebase Emulator
+    // FirebaseAuth.instance.useAuthEmulator('172.29.2.191', 9099);
   }
 
   Future<void> _createAccount() async {
@@ -862,14 +900,21 @@ class _LogInState extends State<LogIn> {
 
   Future<void> _storeUserData(User user, String phone, String email) async {
     final firestore = FirebaseFirestore.instance;
+    
+    String docTitle = generatePhoneHash(phone);
+    print('User doc title: $docTitle');
+    await sqlite.DatabaseHelper.instance.setUserDocTitle(docTitle);
+
     final data = {
       'created_at': Timestamp.now(),
+      'hasehdId': docTitle,
       'uid': user.uid,
       'phone': phone,
       'email': email,
       'provider': user.providerData.isNotEmpty ? user.providerData.last.providerId : 'phone',
     };
-    await firestore.collection('user_ids').doc(phone).set(data);
+
+    await firestore.collection('user_ids').doc(docTitle).set(data);  // Set the uid as the doc title
   }
 
   void _showDemoPopup() {
@@ -877,10 +922,10 @@ class _LogInState extends State<LogIn> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text('Welcome to Integridate!', textAlign: TextAlign.center),
+          title: const Text('Welcome to Singles List!', textAlign: TextAlign.center),
           content: const Text(
             'This is an app demo complete with fake accounts, '
-            'so you can see what makes Integridate different '
+            'so you can see what makes Singles List different '
             'from all the other dating apps '
             'without having to create an account.\n\n'
             'Would you like to enter the demo?',
@@ -912,7 +957,7 @@ class _LogInState extends State<LogIn> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const Text(
-              'Integridate',
+              'Singles List',
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.white),
             ),

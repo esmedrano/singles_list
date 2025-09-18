@@ -3,6 +3,7 @@ import 'package:integra_date/databases/sqlite_database.dart' as sqlite;
 import 'dart:io';
 import 'package:integra_date/widgets/share_popup.dart';
 import 'package:integra_date/widgets/pagination_buttons.dart' as pagination_buttons;
+import 'package:integra_date/pages/swipe_page.dart' as swipe_page;
 
 bool startedRingAlgo = false;
 bool paginatingNext = false;
@@ -26,13 +27,14 @@ class BannerView extends StatelessWidget {
     required this.onPreviousPage,
     required this.onNextPage,
     required this.pageCount,
+    required this.filteredPageCount,
   });
 
   final ScrollController scrollController;
   final Future<List<Map<dynamic, dynamic>>> profileData;
   final bool isLoading;
   final double initialOffset;
-  final Function(int, int?) switchPage;
+  final Function(int, int?, Map<dynamic, dynamic>?) switchPage;
   final double bannerH;
   static double bannerHeight = 80;
 
@@ -44,6 +46,7 @@ class BannerView extends StatelessWidget {
   final Function([int?]) onPreviousPage;
   final Function([int?]) onNextPage;
   final int pageCount;
+  final int filteredPageCount;
 
   @override
   Widget build(BuildContext context) {
@@ -110,6 +113,7 @@ class BannerView extends StatelessWidget {
                           paginatingNext = true;  
                         },
                         pageCount: pageCount,
+                        filteredPageCount: filteredPageCount,
                       ),
                     ],
                   ); 
@@ -134,7 +138,7 @@ class BannerItem extends StatefulWidget {
 
   final Map<dynamic, dynamic> profile;
   final int index;
-  final Function(int, int?) switchPage;
+  final Function(int, int?, Map<dynamic, dynamic>?) switchPage;
 
   final VoidCallback startRingAlgo;
 
@@ -164,7 +168,10 @@ class _BannerItemState extends State<BannerItem> {
       padding: const EdgeInsets.only(top: 5, left: 10, right: 10),
       child: InkWell(
         onTap: () => setState(() => picsAreExpanded = !picsAreExpanded),
-        onDoubleTap: () => widget.switchPage(1, widget.index),
+        onDoubleTap: () {
+          widget.switchPage(1, widget.index, null);
+          swipe_page.toggleDisplaySearchTrue();
+        },
         onLongPress: () {
           setState(() {
             picsAreExpanded = true;

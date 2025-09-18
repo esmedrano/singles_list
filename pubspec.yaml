@@ -38,10 +38,9 @@ dependencies:
   cloud_firestore: ^5.4.3
   firebase_storage: ^12.3.2
   firebase_auth: ^5.7.0
-  cloud_functions: ^5.1.1
+  firebase_analytics: ^11.3.3
 
   tflite_flutter: ^0.11.0
-  google_mlkit_text_recognition: ^0.15.0  # For DL# parsing
   google_mlkit_face_detection: ^0.13.0
   image: ^4.0.0  # For image processing (cropping)
   permission_handler: ^11.1.0
@@ -68,12 +67,23 @@ dependencies:
   connectivity_plus: ^6.0.5
 
   share_plus: ^10.0.2
+
+  app_links: ^6.4.1
   
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
 
+flutter_launcher_icons:
+  android: "ic_launcher"
+  ios: true
+  image_path: "assets/app_icon.png"
+  min_sdk_android: 21 # Optional, for adaptive icons
+  adaptive_icon_foreground: "assets/app_icon_foreground.png" # Optional, for Android adaptive icons
+  adaptive_icon_background: "#FFFFFF" # Optional, solid color or image for Android adaptive icons
+
 dev_dependencies:
+  flutter_launcher_icons: ^0.13.1
   flutter_test:
     sdk: flutter
 

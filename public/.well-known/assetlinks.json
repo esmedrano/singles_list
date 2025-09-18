@@ -1,0 +1,8 @@
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "com.example.integra_date",
+    "sha256_cert_fingerprints": ["C2:D3:CB:EF:01:35:FD:1B:8C:76:7F:D6:E5:20:77:EC:E8:2E:BB:96:BF:21:5E:D0:A6:10:51:E8:07:55:5D:8A"]
+  }
+}]

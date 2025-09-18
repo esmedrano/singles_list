@@ -4,18 +4,32 @@ import 'package:integra_date/widgets/database_page_widgets/banner_view.dart' sho
 import 'dart:io';
 import 'package:integra_date/databases/sqlite_database.dart' as sqlite;
 
+bool hasDisplayedSearchedProfile = true; // Tracks if searchedProfile was shown
+void toggleDisplaySearchFalse() {
+  print('toggled false');
+  hasDisplayedSearchedProfile = false;
+}
+
+void toggleDisplaySearchTrue() {
+  print('toggled true');
+  hasDisplayedSearchedProfile = true;
+}
+
 class SwipePage extends StatefulWidget {
   const SwipePage({
     super.key,
     required this.profiles,
     this.databaseIndex,
-    required this.addNewFilteredProfiles
+    required this.addNewFilteredProfiles,
+    required this.searchedProfile
   });
 
   final Future<List<Map<dynamic, dynamic>>> profiles;
   final int? databaseIndex;
 
   final Function(bool?) addNewFilteredProfiles;
+
+  final Map<dynamic, dynamic>? searchedProfile;
 
   @override
   SwipePageState createState() => SwipePageState();
@@ -28,23 +42,34 @@ class SwipePageState extends State<SwipePage> {
   void didUpdateWidget(SwipePage oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.databaseIndex != oldWidget.databaseIndex) {
+      print('new profile selected from database page');
       setState(() {
+        //hasDisplayedSearchedProfile = true;
         profileIndex = widget.databaseIndex ?? 0;
       });
-    }
+    } 
   }
 
   @override
   Widget build(BuildContext context) {
-    // print('Swipe page building now!');
+    print('Swipe page building now!');
+    //print('searchedProfile: ${widget.searchedProfile}');
 
     List<Map<dynamic, dynamic>> profiles = [];
 
-    void nextProfile() {
+    void nextProfile() {  
       setState(() {
-        profileIndex += 1;
-        if (profileIndex == profiles.length) {
+        if (widget.searchedProfile != null && !hasDisplayedSearchedProfile) {
+          // Mark searchedProfile as displayed and reset index for next profiles
+          hasDisplayedSearchedProfile = true;
+          
           profileIndex = 0;
+        } else {
+          // Move to next profile in the list
+          profileIndex += 1;
+          if (profileIndex >= profiles.length) {
+            profileIndex = 0;
+          }
         }
       });
     }
@@ -66,6 +91,11 @@ class SwipePageState extends State<SwipePage> {
         profiles = snapshot.data!;
         //print('SwipePage: Loaded ${profiles.length} profiles');
 
+        // Use searchedProfile if it exists and hasn't been displayed
+        final currentProfile = (widget.searchedProfile != null && !hasDisplayedSearchedProfile)
+          ? widget.searchedProfile!['profile_data']
+          : profiles[profileIndex];
+
         return SafeArea(
           child: ListView(
             padding: const EdgeInsets.only(left: 10, right: 10, top: 10),
@@ -79,15 +109,15 @@ class SwipePageState extends State<SwipePage> {
                         child: AspectRatio(
                           aspectRatio: 4 / 5,
                           child: FutureBuilder<String?>(
-                            future: _getImagePath(profiles[profileIndex]['profilePic'], profiles[profileIndex]['name']?.toString() ?? 'Unknown', context, profiles),
+                            future: _getImagePath(currentProfile['profilePic'], currentProfile['name']?.toString() ?? 'Unknown', context, profiles),
                             builder: (context, snapshot) {
-                              //print('SwipePage: Loading profile image for ${profiles[profileIndex]['name']}, profilePic=${profiles[profileIndex]['profilePic']}, connectionState=${snapshot.connectionState}');
+                              //print('SwipePage: Loading profile image for ${currentProfile['name']}, profilePic=${currentProfile['profilePic']}, connectionState=${snapshot.connectionState}');
                               if (snapshot.connectionState == ConnectionState.waiting) {
                                 return const Center(child: CircularProgressIndicator());
                               }
                               final imagePath = snapshot.data;
                               if (imagePath == null || !File(imagePath).existsSync()) {
-                                //print('SwipePage: No valid profile image for ${profiles[profileIndex]['name']}');
+                                //print('SwipePage: No valid profile image for ${currentProfile['name']}');
                                 return Container(
                                   color: Colors.grey,
                                   child: const Center(child: Icon(Icons.person, color: Colors.white, size: 48)),
@@ -150,7 +180,7 @@ class SwipePageState extends State<SwipePage> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(
-                            profiles[profileIndex]['name']?.toString() ?? 'Unknown',
+                            currentProfile['name']?.toString() ?? 'Unknown',
                             style: const TextStyle(
                               fontFamily: 'Roboto',
                               fontSize: 18,
@@ -161,7 +191,7 @@ class SwipePageState extends State<SwipePage> {
                           ),
                           const SizedBox(width: 30),
                           Text(
-                            profiles[profileIndex]['age']?.toString() ?? 'N/A',
+                            currentProfile['age']?.toString() ?? 'N/A',
                             style: const TextStyle(
                               fontFamily: 'Roboto',
                               fontSize: 18,
@@ -172,7 +202,7 @@ class SwipePageState extends State<SwipePage> {
                           ),
                           const SizedBox(width: 30),
                           Text(
-                            profiles[profileIndex]['height']?.toString() ?? 'N/A',
+                            currentProfile['height']?.toString() ?? 'N/A',
                             style: const TextStyle(
                               fontFamily: 'Roboto',
                               fontSize: 18,
@@ -188,7 +218,7 @@ class SwipePageState extends State<SwipePage> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(
-                            profiles[profileIndex]['location']?.toString() ?? 'N/A',
+                            currentProfile['location']?.toString() ?? 'N/A',
                             style: const TextStyle(
                               fontFamily: 'Roboto',
                               fontSize: 18,
@@ -199,7 +229,7 @@ class SwipePageState extends State<SwipePage> {
                           ),
                           const SizedBox(width: 30),
                           Text(
-                            profiles[profileIndex]['distance']?.toString() ?? 'N/A',
+                            currentProfile['distance']?.toString() ?? 'N/A',
                             style: const TextStyle(
                               fontFamily: 'Roboto',
                               fontSize: 18,
@@ -215,7 +245,7 @@ class SwipePageState extends State<SwipePage> {
                   ),
                 ),
               ),
-              for (var imagePath in (profiles[profileIndex]['images'] as List<dynamic>? ?? []))
+              for (var imagePath in (currentProfile['images'] as List<dynamic>? ?? []))
                 Column(
                   children: [
                     Stack(
@@ -227,15 +257,15 @@ class SwipePageState extends State<SwipePage> {
                               child: AspectRatio(
                                 aspectRatio: 4 / 5,
                                 child: FutureBuilder<String?>(
-                                  future: _getImagePath(imagePath, profiles[profileIndex]['name']?.toString() ?? 'Unknown', context, profiles),
+                                  future: _getImagePath(imagePath, currentProfile['name']?.toString() ?? 'Unknown', context, profiles),
                                   builder: (context, snapshot) {
-                                    ////print('SwipePage: Loading additional image for ${profiles[profileIndex]['name']}, imagePath=$imagePath, connectionState=${snapshot.connectionState}');
+                                    ////print('SwipePage: Loading additional image for ${currentProfile['name']}, imagePath=$imagePath, connectionState=${snapshot.connectionState}');
                                     if (snapshot.connectionState == ConnectionState.waiting) {
                                       return const Center(child: CircularProgressIndicator());
                                     }
                                     final resolvedPath = snapshot.data;
                                     if (resolvedPath == null || !File(resolvedPath).existsSync()) {
-                                      ////print('SwipePage: No valid additional image for ${profiles[profileIndex]['name']}');
+                                      ////print('SwipePage: No valid additional image for ${currentProfile['name']}');
                                       return Container(
                                         color: Colors.grey,
                                         child: const Center(child: Icon(Icons.image, color: Colors.white, size: 48)),
@@ -288,9 +318,14 @@ class SwipePageState extends State<SwipePage> {
 
   Future<String?> _getImagePath(
       String? imagePath, String profileId, BuildContext context, profiles) async {
+    // Use searchedProfile if it exists and hasn't been displayed
+    final currentProfile = (widget.searchedProfile != null && !hasDisplayedSearchedProfile)
+      ? widget.searchedProfile!['profile_data']
+      : profiles[profileIndex];
+
     if (imagePath == null || !File(imagePath).existsSync()) {
       final cachedPath = await sqlite.DatabaseHelper.instance.getCachedImage(
-          profileId, profiles[profileIndex]['images']?.isNotEmpty == true ? profiles[profileIndex]['images'][0] : '');
+          profileId, currentProfile['images']?.isNotEmpty == true ? currentProfile['images'][0] : '');
       if (cachedPath != null && File(cachedPath).existsSync()) {
         return cachedPath;
       }
@@ -367,7 +402,7 @@ class SwipePageState extends State<SwipePage> {
                     child: SizedBox(
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(10),  // Adjust radius for rounded corners
-                        child: AspectRatio(aspectRatio: 4/5, child: Image.asset(profiles[profileIndex]['profilePic'], fit: BoxFit.cover))
+                        child: AspectRatio(aspectRatio: 4/5, child: Image.asset(currentProfile['profilePic'], fit: BoxFit.cover))
                       )
                     ),
                   ),
@@ -427,7 +462,7 @@ class SwipePageState extends State<SwipePage> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(
-                            profiles[profileIndex]['name'],
+                            currentProfile['name'],
                             style: TextStyle(
                               fontFamily: 'Roboto',
                               fontSize: 18,
@@ -440,7 +475,7 @@ class SwipePageState extends State<SwipePage> {
                           SizedBox(width: 30),
           
                           Text(
-                            profiles[profileIndex]['age'],
+                            currentProfile['age'],
                             style: TextStyle(
                               fontFamily: 'Roboto',
                               fontSize: 18,
@@ -453,7 +488,7 @@ class SwipePageState extends State<SwipePage> {
                           SizedBox(width: 30),
           
                           Text(
-                            profiles[profileIndex]['height'],
+                            currentProfile['height'],
                             style: TextStyle(
                               fontFamily: 'Roboto',
                               fontSize: 18,
@@ -470,7 +505,7 @@ class SwipePageState extends State<SwipePage> {
                       Row(  // Row two of text 
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Text(profiles[profileIndex]['location'], 
+                          Text(currentProfile['location'], 
                             style: TextStyle(
                               fontFamily: 'Roboto',
                               fontSize: 18,
@@ -480,7 +515,7 @@ class SwipePageState extends State<SwipePage> {
                             ),
                           ),
                           SizedBox(width: 30),
-                          Text(profiles[profileIndex]['distance'], 
+                          Text(currentProfile['distance'], 
                             style: TextStyle(
                               fontFamily: 'Roboto',
                               fontSize: 18,
@@ -499,7 +534,7 @@ class SwipePageState extends State<SwipePage> {
           
               // Display tags
               
-              for (var imagePath in profiles[profileIndex]['images'])  // Display all other images
+              for (var imagePath in currentProfile['images'])  // Display all other images
                 Column(
                   children: [
                     Stack(

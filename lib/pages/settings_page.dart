@@ -565,10 +565,10 @@ class DeleteAccountButton extends StatelessWidget {
 
     try {
       // Configure emulator if in debug mode
-      if (kDebugMode) {
-        FirebaseStorage.instance.useStorageEmulator('192.168.1.153', 9199);
-        debugPrint('Storage emulator configured: 192.168.1.153:9199 at ${DateTime.now()}');
-      }
+      // if (kDebugMode) {
+      //   FirebaseStorage.instance.useStorageEmulator('192.168.1.153', 9199);
+      //   debugPrint('Storage emulator configured: 192.168.1.153:9199 at ${DateTime.now()}');
+      // }
 
       // Fetch and delete profile images from Firebase Storage
       if (user.phoneNumber != null) {

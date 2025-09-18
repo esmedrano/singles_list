@@ -28,8 +28,14 @@ android {
   }
 
   buildTypes {
-    release {
-      signingConfig = signingConfigs.getByName("debug")
+    getByName("release") {
+      isMinifyEnabled = true // Only set to true if "proguardrules-rules.pro" are tested or else may interfere with firebase
+      isShrinkResources = true // Only set to true if "proguardrules-rules.pro" are tested or else may interfere with firebase
+      proguardFiles(
+          getDefaultProguardFile("proguard-android-optimize.txt"),
+          "proguard-rules.pro"
+      )
+      signingConfig = signingConfigs.getByName("debug") // Use debug signing for testing    
     }
   }
 }

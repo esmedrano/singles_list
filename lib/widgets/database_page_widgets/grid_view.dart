@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:integra_date/databases/sqlite_database.dart' as sqlite;
 import 'package:integra_date/widgets/share_popup.dart';
 import 'package:integra_date/widgets/pagination_buttons.dart';
+import 'package:integra_date/pages/swipe_page.dart' as swipe_page;
 
 class BoxView extends StatefulWidget {
   const BoxView({
@@ -21,13 +22,14 @@ class BoxView extends StatefulWidget {
     required this.onPreviousPage,
     required this.onNextPage,
     required this.pageCount,
+    required this.filteredPageCount,
   });
 
   final ScrollController scrollController;
   final Future<List<Map<dynamic, dynamic>>> profileData;
   final bool isLoading;
   final double initialOffset;
-  final Function(int, int?) switchPage;
+  final Function(int, int?, Map<dynamic, dynamic>?) switchPage;
 
   final int currentPage;
   final bool hasPreviousPage;
@@ -35,6 +37,7 @@ class BoxView extends StatefulWidget {
   final Function([int?]) onPreviousPage;
   final Function([int?]) onNextPage;
   final int pageCount;
+  final int filteredPageCount;
 
   @override
   _BoxViewState createState() => _BoxViewState();
@@ -403,6 +406,7 @@ class _BoxViewState extends State<BoxView> with TickerProviderStateMixin {
                                     // });
                                   },
                                   pageCount: widget.pageCount,
+                                  filteredPageCount: widget.filteredPageCount,
                                 )
                               ],
                             ),
@@ -457,7 +461,7 @@ class ProfileGridItem extends StatefulWidget {
   final Map<dynamic, dynamic> profile;
   final double gridItemWidth;
   final int index;
-  final Function(int, int?) onBannerTap;
+  final Function(int, int?, Map<dynamic, dynamic>?) onBannerTap;
   final bool isPinching;
 
   @override
@@ -478,7 +482,10 @@ class _ProfileGridItemState extends State<ProfileGridItem> {
                 displayInfo = !displayInfo;
               });
             },
-      onDoubleTap: widget.isPinching ? null : () => widget.onBannerTap(1, widget.index),
+      onDoubleTap: widget.isPinching ? null : () {
+        widget.onBannerTap(1, widget.index, null);
+        swipe_page.toggleDisplaySearchTrue();
+      },
       onLongPress: widget.isPinching
           ? null
           : () {

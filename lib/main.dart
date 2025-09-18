@@ -1,18 +1,16 @@
 import 'package:flutter/material.dart';
-// import 'package:flutter/rendering.dart'
+//import 'package:flutter/rendering.dart'
 import 'package:flutter/cupertino.dart'; 
 import 'package:integra_date/widgets/navigation_bar.dart' as navigation_bar;
 
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart'; // Generated file after Firebase setup
-//import 'package:firebase_app_check/firebase_app_check.dart';w
+//import 'package:firebase_app_check/firebase_app_check.dart';
 
 // Emulators
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-
-// For deleting the cache on rebuild to allow debugging
 import 'package:integra_date/databases/sqlite_database.dart' as sqlite;
 
 void main() async {
@@ -20,11 +18,15 @@ void main() async {
 
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
-  FirebaseFirestore.instance.useFirestoreEmulator('192.168.1.153', 8080);  // library: '172.29.2.222', home: '192.168.1.153', grapevine: '10.170.1.4'
-  FirebaseStorage.instance.useStorageEmulator('192.168.1.153', 9199);
+  FirebaseFirestore.instance.useFirestoreEmulator('192.168.1.153', 8080);  // library: '172.29.2.191', home: '192.168.1.153', grapevine: '10.170.1.4'
+  await FirebaseStorage.instance.useStorageEmulator('192.168.1.153', 9199);
   await FirebaseAuth.instance.useAuthEmulator('192.168.1.153', 9099);
 
+  await sqlite.DatabaseHelper.instance.clearCachedImages(); //////////////////////////////////////////////////////////////////////////////////////////
+  await sqlite.DatabaseHelper.instance.clearAllSettings(); // Clears profiles too
+  await sqlite.DatabaseHelper.instance.deleteDatabaseFile();
 
+  await sqlite.DatabaseHelper.instance.setUserDocTitle('CqN9BUUjYFA');  //123 123 1231  // This is to reset the user doc title in sqlite when it is cleared
   runApp(const MyApp());
 }
 

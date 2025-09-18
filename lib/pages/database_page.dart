@@ -19,6 +19,7 @@ class DatabasePage extends StatefulWidget {
     required this.onPreviousPage,
     required this.onNextPage,
     required this.pageCount,
+    required this.filteredPageCount,
 
     required this.addNewFilteredProfiles,  // From navigation_bar.dart. Updates the page with filtered profiles
     required this.startRingAlgo  // From navigation_bar.dart. Updates the page with profiles after the ring algo query completes for the radius set in filters
@@ -26,13 +27,14 @@ class DatabasePage extends StatefulWidget {
 
   final ThemeData theme;
   final Future<List<Map<dynamic, dynamic>>> profileData;
-  final Function(int, int?) switchPage;
+  final Function(int, int?, Map<dynamic, dynamic>?) switchPage;
   final int currentPage;
   final bool hasPreviousPage;
   final bool hasNextPage;
   final Function([int?]) onPreviousPage;
   final Function([int?]) onNextPage;
   final int pageCount;
+  final int filteredPageCount;
 
   final Function(bool?) addNewFilteredProfiles;
   final VoidCallback startRingAlgo;
@@ -118,7 +120,12 @@ class _DatabasePageState extends State<DatabasePage> {
     return Column(
       mainAxisAlignment: MainAxisAlignment.start,
       children: [
-        search_bar.DateSearch(theme: theme, onToggleViewMode: _toggleViewMode, addNewFilteredProfiles: widget.addNewFilteredProfiles),
+        search_bar.DateSearch(
+          theme: theme, 
+          onToggleViewMode: _toggleViewMode, 
+          addNewFilteredProfiles: widget.addNewFilteredProfiles,
+          switchPage: widget.switchPage,
+        ),
         
         TextButton(onPressed: () async{
             sqlite.DatabaseHelper.instance.logDatabaseContents();
@@ -154,6 +161,7 @@ class _DatabasePageState extends State<DatabasePage> {
                   onPreviousPage: widget.onPreviousPage,
                   onNextPage: widget.onNextPage,
                   pageCount: widget.pageCount,
+                  filteredPageCount: widget.filteredPageCount,
                 )
               : grid_view.BoxView(
                   scrollController: _scrollController,
@@ -168,6 +176,7 @@ class _DatabasePageState extends State<DatabasePage> {
                   onPreviousPage: widget.onPreviousPage,
                   onNextPage: widget.onNextPage,
                   pageCount: widget.pageCount,
+                  filteredPageCount: widget.filteredPageCount,
                 ),
         ),
         // Pagination buttons used to be here

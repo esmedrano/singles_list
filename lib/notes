@@ -66,7 +66,7 @@ for the grid view im officially copying iphone. Shouldnt take that much longer a
 
 - after canceling the phone verif once, it no longer sends
 
-- if initial query finds more than max profiles in a hash of precision 6, it breaks
+- if initial query finds more than max profiles (210) in a hash of precision 6, it breaks
 
 - if large initial hash exceeds firestore query limit, no query is made 
 
@@ -74,6 +74,37 @@ for the grid view im officially copying iphone. Shouldnt take that much longer a
   ammount of calculations. It maybe easier to do this another way, but it only adds like .5 seconds of load time. 
 
 - Make sure the ring algo picks up at the appropriate spot after the initial large hash query 
+
+- The 5 mile radius is never cached after the initial ring algo. This loads in the first page after every filter 
+  update 
+
+- If rebuilt after the initial hash query and before the initial ring algo, the saveLastFirebaseProfile never runs and the ring algo ring shortener breaks. To fix consider fetching last profile from cache or just deleting cache and recaching profiles.
+
+=========================
+== POTENTIAL PROBLEMS: ==
+=========================
+
+BEFORE (android/app/build.gradle.kts)
+
+buildTypes {
+  release {
+    signingConfig = signingConfigs.getByName("debug")
+  }
+}
+
+AFTER
+
+buildTypes {
+  getByName("release") {
+    isMinifyEnabled = true // Kotlin Script syntax for minifyEnabled
+    isShrinkResources = true // Kotlin Script syntax for shrinkResources
+    proguardFiles(
+        getDefaultProguardFile("proguard-android-optimize.txt"),
+        "proguard-rules.pro"
+    )
+    signingConfig = signingConfigs.getByName("debug") // Use debug signing for testing    
+  }
+}
 
 ================
 == CHECKLIST: ==
@@ -161,3 +192,16 @@ for the grid view im officially copying iphone. Shouldnt take that much longer a
 =====  check for redundant profiles after getting initial hash and starting first ring  
 |   |  
 =====
+
+=====  update C:\Users\esmed\Documents\code\flutter   
+|   |  projects\integra_date\android\app\src\main\res\xml\network_security_config.xml
+=====
+
+=====  If the user moves 20 miles from the central location, the ring algo should   
+|   |  restart from the new location. Right now the central location is updated without 
+=====  triggering a restart.
+
+=====  Change SHA key to prod in public/.well-known/assetlinks.json && wherever else  
+|   |  
+=====
+C2:D3:CB:EF:01:35:FD:1B:8C:76:7F:D6:E5:20:77:EC:E8:2E:BB:96:BF:21:5E:D0:A6:10:51:E8:07:55:5D:8A

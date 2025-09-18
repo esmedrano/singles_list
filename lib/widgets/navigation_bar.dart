@@ -18,6 +18,9 @@ import 'package:geolocator/geolocator.dart' as geolocator;
 
 import 'package:integra_date/widgets/permissions_popup.dart' as permissions_popup;
 
+import 'package:integra_date/scripts/create_profile_url.dart' as create_profile_url;
+import 'package:firebase_analytics/firebase_analytics.dart'; // Add this
+
 // This turns keeps the ring algo from restarting if a query is occurring 
 bool runningRings = false;
 void toggleRings(bool running) {
@@ -66,6 +69,11 @@ class _NavigationBarState extends State<PageSelectBar> {
   bool permissionGranted = false;
 
   int pageCount = 0; 
+  int filteredPageCount = 0;
+
+  bool noRebuildAfterRadiusIncrease = false;
+
+  Map<dynamic, dynamic>? searchedProfile;
 
   @override
   void initState() {
@@ -97,9 +105,18 @@ class _NavigationBarState extends State<PageSelectBar> {
     final user = FirebaseAuth.instance.currentUser;
     //final user = null;
 
+    print('Firestore instance: ${FirebaseFirestore.instance.app.name}');
+
     setState(() {
       loggedIn = user != null;
       if (loggedIn) {
+        print('Authenticated user UID: ${user!.uid}');
+
+        // Initialize DeepLinkHandler
+        final deepLinkHandler = create_profile_url.DeepLinkHandler();
+        FirebaseAnalytics.instance.logAppOpen(); // Track app open  // This can be waited on (future) but im testing it without
+        deepLinkHandler.initDeepLinks();
+
         currentPageIndex = 0;
         navBarIndex = 0;
         isInDemo = false;
@@ -113,20 +130,16 @@ class _NavigationBarState extends State<PageSelectBar> {
 
     if (loggedIn && !hasLocationForNewAccount && currentPageIndex == 0) {
       print('attempting to get initial location');
-      permissionGranted = await initialSendLocationToFB();
+      permissionGranted = await sendLocation();
     }
 
     if (loggedIn && permissionGranted) {
-      print('loading');
+      print('Location permissions are allowed and location is confirmed. Loading profiles.');
       await loadCachedOrFirebaseProfiles();  // Location permissions need to be set before this runs or the app will crash.
     }
   }
 
-  Future<void> loadCachedOrFirebaseProfiles({bool append = false, bool previous = false}) async {
-    // await sqlite.DatabaseHelper.instance.clearCachedImages(); //////////////////////////////////////////////////////////////////////////////////////////
-    // await sqlite.DatabaseHelper.instance.clearAllSettings(); // Clears profiles too
-    // await sqlite.DatabaseHelper.instance.deleteDatabaseFile();
-    
+  Future<void> loadCachedOrFirebaseProfiles({bool append = false, bool previous = false}) async {  
     final geohasher = GeoHasher();    
 
     // Get the user location from sqlite to pass to the firestore query function
@@ -149,12 +162,30 @@ class _NavigationBarState extends State<PageSelectBar> {
       hasNextPage = false;
     }
 
+    List<int> cachedRadii = await sqlite.DatabaseHelper.instance.getCachedRadii();
+
     int remainingCachedProfiles = totalCachedProfiles - (pageSize * currentPage);  // Restart ring queries if the user paginates enough
-    if (remainingCachedProfiles < 210 && totalCachedProfiles != 0 && !runningRings) {  // !runningRings prevents this from restarting the ring algo if it is already going
+    print('contains current radius: ${!cachedRadii.contains(radius)}');
+    if (remainingCachedProfiles < 210 && totalCachedProfiles != 0 && !runningRings && !cachedRadii.contains(radius)) {  // !runningRings prevents this from restarting the ring algo if it is already going. This is for when the next page paginator is clicked
       print('\n\n');
-      print('Profiles remaining in cache: $remainingCachedProfiles');
+      print('This is the pagination ring loader! Profiles remaining in cache: $remainingCachedProfiles');
       cacheSuccessful = false; 
+
+      if (remainingCachedProfiles > -105) {
+        await getTotalPageCount(); // Await getTotalPageCount before setState
+        setState(() {
+          allCachedProfiles = append ? [...allCachedProfiles, ...pageCachedProfiles] : pageCachedProfiles;
+          currentPage = targetPage;
+          hasPreviousPage = currentPage > 1;
+          profileData = Future.value(pageCachedProfiles);
+        });
+      }
+
       await startRingAlgo();  // This continues the ring algo from where it left off. 
+
+      print('Loaded ${pageCachedProfiles.length} profiles from SQLite cache for page $targetPage');
+      
+      return;  // This avoids rebuilding the database page again in the cache without ring query section below. 
     }
 
     print('Length of total cachedProfiles database for all pages without filters $totalCachedProfiles');
@@ -172,7 +203,10 @@ class _NavigationBarState extends State<PageSelectBar> {
     totalCachedProfiles >= pageSize ||
     radiusArgsCached.contains(radius)    
     ) {  // Check for cached profiles and load the appropriate page
+      print('This is the load cached profiles without ring algo section.');
       print('Loaded ${pageCachedProfiles.length} profiles from SQLite cache for page $targetPage');
+      
+      await getTotalPageCount(); // Await getTotalPageCount before setState
       setState(() {
         allCachedProfiles = append ? [...allCachedProfiles, ...pageCachedProfiles] : pageCachedProfiles;
         currentPage = targetPage;
@@ -194,6 +228,7 @@ class _NavigationBarState extends State<PageSelectBar> {
 
       pageCachedProfiles = await sqlite.DatabaseHelper.instance.getAllOtherUserProfiles(page: targetPage, pageSize: pageSize);  // The profiles are cached during the query function, so go ahead and grab the cached version of the profiles for debugging purposes
       
+      await getTotalPageCount(); // Await getTotalPageCount before setState
       setState(() {
         allCachedProfiles = append ? [...allCachedProfiles, ...pageCachedProfiles] : pageCachedProfiles;  // This doesn't seem to be used
         currentPage = targetPage;
@@ -210,11 +245,18 @@ class _NavigationBarState extends State<PageSelectBar> {
     // OH WAIT NO ALL I NEED TO DO IS CONTINUE GETTING RINGS
 
     //profileData.then((profiles) => print('PageSelectBar: ProfileData: Loaded ${profiles.length} profiles'));
-    setState(() {
-      profileData = completer.future;
-      //print('ProfileData: $profileData');
-    });
-    await getTotalPageCount();
+    // if (noRebuildAfterRadiusIncrease) {
+    //   setState(() {
+    //     profileData = completer.future;
+    //   });
+    // } else {
+    //   profileData = completer.future;
+    //   noRebuildAfterRadiusIncrease = false;
+    // }
+
+    // setState(() {
+    //   profileData = completer.future;
+    // });
   }
 
   Future<void> startRingAlgo() async{  // If i filter or rebuild while this is running I need to pause it and pick back up after
@@ -226,6 +268,10 @@ class _NavigationBarState extends State<PageSelectBar> {
     }
 
     if (cacheSuccessful) {  // Do not start the ring algo after an inital cache is built in the database page. The database page will attempt to get ring queries after building. 
+      return;
+    }
+
+    if (runningRings) {
       return;
     }
     
@@ -240,6 +286,7 @@ class _NavigationBarState extends State<PageSelectBar> {
 
     int totalCachedProfiles = await sqlite.DatabaseHelper.instance.getAllOtherUserProfilesCount();  // This is needed to check if total cached profiles is greater than the page size, which if true will allow the pagination button to work
 
+    await getTotalPageCount();
     setState(() {  // Rebuild the widget tree- including all views -with fresh profiles, but only if page one is not full. Otherwise the additional profiles can be found in the cache for later
       hasNextPage = totalCachedProfiles >= pageSize && totalCachedProfiles - currentPage * pageSize != 0;  // Allow pagination button to work, but only if there are more profiles
       profileData = completer.future;  // This should be from the cache, but i need to fix pagination first. 
@@ -249,6 +296,7 @@ class _NavigationBarState extends State<PageSelectBar> {
   Future<void> addNewFilteredProfiles([bool? onlyDistanceChanged]) async{  // This function runs after saving the filters in the filter menu. It updates the profile data list with the filtered profiles, that are then passed to aoll pages below.    
     late int page;
     setQueryDistance();  // This sets the new max query distance if it has changed 
+    await getTotalPageCount(); // Await getTotalPageCount before setState
 
     // Find the largest radius that has been depleted so far 
     List<int> cachedRadii = await sqlite.DatabaseHelper.instance.getCachedRadii();
@@ -260,33 +308,44 @@ class _NavigationBarState extends State<PageSelectBar> {
     }
 
     // Set the page to current page if the updated radius arg is larger than the the already cached radii. This is so that the page doesn't go back to 1 when the distance filter is set to a greateer distance 
-    if (radius > largestRadius) {
+    print(radius);
+    print(largestRadius);
+    if (radius > largestRadius && largestRadius != 0) {  // Say the filteres are set to 5 miles. The 5 mile radius includes hashes outside the 5 mile radius. So when the filters are set to 10 miles, the ring algo generates a new list of hashes, and then when the '5 mile radius' list is finally complete, it doesn't know to save it, so the largest radius is still 0 az the 10 mile radius is being cached. This means the page will not reset when filters are set to 5 after the first half of the 10 mile radius is cached. So check of the largest radius is still 0 instead of trying to keep track of the radius hash in the hash lists.  
       page = currentPage;
+      noRebuildAfterRadiusIncrease = true;  // After a bit more thinking it seems that the radius will never be cached. I should keep track of the hashes that are at the end of each radius. Or risk always reseting to page one. It should be fine if it always resets becuase the user can use the cupertino picker.
     } else {
       page = 1;
     }
 
-    print(page);
+    // print('page $page');
 
     setState(() {
+      currentPage = page;
+      hasPreviousPage = false;
       profileData = sqlite.DatabaseHelper.instance.getAllOtherUserProfiles(page: page, pageSize: 105);  // This applies the filters that were saved   
     });
     
+    print('r $radius');
     int totalCachedProfiles = await sqlite.DatabaseHelper.instance.getAllOtherUserProfilesCount();
     int remainingCachedProfiles = totalCachedProfiles - (pageSize * currentPage);  // Restart ring queries if the cache is depleted and the user changed the max distance
-    if (remainingCachedProfiles < 210 && totalCachedProfiles != 0) {  
+    int remainingFilteredProfiles = await sqlite.DatabaseHelper.instance.getFilteredProfilesCount();
+    if (remainingCachedProfiles < 210 && totalCachedProfiles != 0 && !cachedRadii.contains(radius) || remainingFilteredProfiles < 210 && !cachedRadii.contains(radius)) {  // CHECK so it would really help if I knew the hash that should trigger the radius cache, because rt now the next radius rings are started without bothering to cache the old radius because it is only cached if the very last one is hit.  
       print('\n\n');
       print('Profiles remaining in cache: $remainingCachedProfiles');
       cacheSuccessful = false; 
       await startRingAlgo();  // This continues the ring algo from where it left off but will not run if the current radius has already been depleted.
+      // If it is already running, then when the user filters again the ring algo will know not to restart
     }
-
-    print('added?');
   }
 
   Future<void> getTotalPageCount() async{
-    int totalProfiles = await sqlite.DatabaseHelper.instance.getAllOtherUserProfilesCount();
-    pageCount = (totalProfiles / 105).floor();
+    // int totalProfiles = await sqlite.DatabaseHelper.instance.getAllOtherUserProfilesCount();
+    // pageCount = (totalProfiles / 105).ceil();
+    int filteredProfiles = await sqlite.DatabaseHelper.instance.getFilteredProfilesCount(); 
+    print(filteredProfiles);
+    filteredPageCount = (filteredProfiles / 105).ceil();
+    pageCount = filteredPageCount;
+    print('filteredPageCount: ${filteredPageCount}');
   }
 
   Future<void> onNextPage([int? cupertinoDestination]) async{
@@ -294,7 +353,6 @@ class _NavigationBarState extends State<PageSelectBar> {
     print('Next page clicked');
     print('\n\n');
     
-    print(cupertinoDestination);
     if (cupertinoDestination == null) {
       currentPage++;
       hasPreviousPage = true;
@@ -324,17 +382,21 @@ class _NavigationBarState extends State<PageSelectBar> {
     await loadCachedOrFirebaseProfiles(append: false, previous: true);
   }
 
-  void switchPage(int pageIndex, [int? databaseIndex]) {
+  void switchPage(int pageIndex, [int? databaseIndex, Map<dynamic, dynamic>? profileFromSearch]) {
     setState(() {
       currentPageIndex = pageIndex;
       selectedDatabaseIndex = databaseIndex;
-      if (pageIndex == 0) {
+      if (pageIndex == 0) {  // List view page
         checkAndSetLogInState();
       }
-      if (pageIndex >= 0 && pageIndex <= 3) {
+      if (pageIndex == 1 && profileFromSearch != null) {
+        print('switchPage() setting searchedProfile');
+        searchedProfile = profileFromSearch;
+      }
+      if (pageIndex >= 0 && pageIndex <= 3) {  // Nav bar pages
         navBarIndex = pageIndex;
       }
-      if (pageIndex == 5) {
+      if (pageIndex == 5) {  // Log in page
         loggedIn = false;
       }
 
@@ -359,33 +421,29 @@ class _NavigationBarState extends State<PageSelectBar> {
     });
   }
 
-  Future<bool> initialSendLocationToFB() async{
+  Future<bool> sendLocation() async{
     print('Triggering location prompt: loggedIn=$loggedIn, hasLocation=$hasLocationForNewAccount, currentPageIndex=$currentPageIndex');
     try {
       if (mounted) {
-        List<double>? newLoc = await ProfileLocation.getLocation(context, settingsButton);
-        
-        if (mounted && newLoc != null) {
-          print('not null');
-          await ProfileLocation.storeLocation(context, newLoc[0], newLoc[1]);
-          if (mounted) {
-            setState(() {  // Not sure if this setState is really necessary 
-              hasLocationForNewAccount = true;
-            });
-          }
-          return true;
-        } else {
-          return false;
-        }
-
+        List<double>? location = await ProfileLocation.getLocation(context, settingsButton);  // This checks the current location and if there is no previously saved location in sqlite, store it as the central location. If there is a previously stored location, it compares it to the current location and updates the central location if the user has moved past the threshold (~20 miles) 
+        return location != null ? true : false;
       } else {
         return false;
       }
-      print('Location saved and hasLocation set to true in SQLite');
     } catch (e) {
       print('Error running getAndStoreLocation: $e');
       return false;
     }
+  }
+
+  Future<void> startNewQuery() async{
+    // If the user travels past the distance threshold, the old profiles can stay, but there distance values should be updated to reflect the new distance
+    // The distance values should NOT be updated every time the app opens, as this would allow stalking. 
+
+    // In addition to updating the distances, a new query should start from the new location, avoiding redundant profiles. 
+    // In fact, it might be easier to clear the cache and just start over. 
+
+    // That's what I'll start with, and later I may start a new query while checking firebase for the cached profiles.  
   }
 
   void settingsButton() {
@@ -486,11 +544,13 @@ class _NavigationBarState extends State<PageSelectBar> {
                 addNewFilteredProfiles: addNewFilteredProfiles,
                 startRingAlgo: startRingAlgo,
                 pageCount: pageCount,
+                filteredPageCount: filteredPageCount,
               ),
               swipe_page.SwipePage(
                 profiles: profileData,
                 databaseIndex: selectedDatabaseIndex,
-                addNewFilteredProfiles: addNewFilteredProfiles
+                addNewFilteredProfiles: addNewFilteredProfiles,
+                searchedProfile: searchedProfile
               ),
               messages_page.MessagePage(theme: theme),
               profile_page.ProfilePage(
@@ -514,54 +574,54 @@ class _NavigationBarState extends State<PageSelectBar> {
         ],
       ),
       bottomNavigationBar: currentPageIndex != 5
-          ? NavigationBar(
-              selectedIndex: navBarIndex,
-              height: 60,
-              backgroundColor: Color.fromARGB(255, 134, 142, 199),
-              indicatorColor: Colors.transparent,
-              overlayColor: WidgetStatePropertyAll(Colors.transparent),
-              onDestinationSelected: (int index) {
-                setState(() {
-                  currentPageIndex = index;
-                  navBarIndex = index;
-                });
-              },
-              destinations: [
-                Padding(
-                  padding: EdgeInsets.only(top: 20, left: 25, right: 5),
-                  child: NavigationDestination(
-                    icon: ImageIcon(AssetImage('assets/icons/house.png'), size: 30),
-                    selectedIcon: ImageIcon(AssetImage('assets/icons/house_filled.png'), size: 35),
-                    label: '',
-                  ),
-                ),
-                Padding(
-                  padding: EdgeInsets.only(top: 20, left: 5, right: 5),
-                  child: NavigationDestination(
-                    icon: ImageIcon(AssetImage('assets/icons/stack.png'), size: 35),
-                    selectedIcon: ImageIcon(AssetImage('assets/icons/stack_filled.png'), size: 38),
-                    label: '',
-                  ),
-                ),
-                Padding(
-                  padding: EdgeInsets.only(top: 20, left: 5, right: 5),
-                  child: NavigationDestination(
-                    icon: ImageIcon(AssetImage('assets/icons/messages.png'), size: 40),
-                    selectedIcon: ImageIcon(AssetImage('assets/icons/messages_filled.png'), size: 45),
-                    label: '',
-                  ),
-                ),
-                Padding(
-                  padding: EdgeInsets.only(top: 20, left: 5, right: 25),
-                  child: NavigationDestination(
-                    icon: ImageIcon(AssetImage('assets/icons/profile.png'), size: 35),
-                    selectedIcon: ImageIcon(AssetImage('assets/icons/profile_filled.png'), size: 40),
-                    label: '',
-                  ),
-                ),
-              ],
-            )
-          : null,
+        ? NavigationBar(
+          selectedIndex: navBarIndex,
+          height: 60,
+          backgroundColor: Color.fromARGB(255, 134, 142, 199),
+          indicatorColor: Colors.transparent,
+          overlayColor: WidgetStatePropertyAll(Colors.transparent),
+          onDestinationSelected: (int index) {
+            setState(() {
+              currentPageIndex = index;
+              navBarIndex = index;
+            });
+          },
+          destinations: [
+            Padding(
+              padding: EdgeInsets.only(top: 20, left: 25, right: 5),
+              child: NavigationDestination(
+                icon: ImageIcon(AssetImage('assets/icons/house.png'), size: 30),
+                selectedIcon: ImageIcon(AssetImage('assets/icons/house_filled.png'), size: 35),
+                label: '',
+              ),
+            ),
+            Padding(
+              padding: EdgeInsets.only(top: 20, left: 5, right: 5),
+              child: NavigationDestination(
+                icon: ImageIcon(AssetImage('assets/icons/stack.png'), size: 35),
+                selectedIcon: ImageIcon(AssetImage('assets/icons/stack_filled.png'), size: 38),
+                label: '',
+              ),
+            ),
+            Padding(
+              padding: EdgeInsets.only(top: 20, left: 5, right: 5),
+              child: NavigationDestination(
+                icon: ImageIcon(AssetImage('assets/icons/messages.png'), size: 40),
+                selectedIcon: ImageIcon(AssetImage('assets/icons/messages_filled.png'), size: 45),
+                label: '',
+              ),
+            ),
+            Padding(
+              padding: EdgeInsets.only(top: 20, left: 5, right: 25),
+              child: NavigationDestination(
+                icon: ImageIcon(AssetImage('assets/icons/profile.png'), size: 35),
+                selectedIcon: ImageIcon(AssetImage('assets/icons/profile_filled.png'), size: 40),
+                label: '',
+              ),
+            ),
+          ],
+        )
+        : null,
     );
   }
 }

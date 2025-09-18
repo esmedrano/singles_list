@@ -16,13 +16,12 @@ import 'package:integra_date/widgets/pagination_buttons.dart' as pagination_butt
 import 'package:integra_date/widgets/filters_menu.dart' as filters_menu;
 import 'package:integra_date/widgets/navigation_bar.dart' as navigation_bar;
 
-
 String? optimalPrefix;
 
-int max_profiles = 210;
+int max_profiles = 20;
 
 Future<void> logFirestoreContents() async {
-  /////print('\n\n=== Firestore user_ids Collection Contents ===');
+  print('\n\n=== Firestore user_ids Collection Contents ===');
   try {
     final firestore = FirebaseFirestore.instance;
     //await FirebaseFirestore.instance.clearPersistence();  // maybe the firestore instance is stale
@@ -30,19 +29,19 @@ Future<void> logFirestoreContents() async {
     final docs = querySnapshot.docs;
 
     if (docs.isEmpty) {
-      /////print('Firestore: No documents found in user_ids collection');
+      print('Firestore: No documents found in user_ids collection');
     } else {
-      /////print('Firestore: Found ${docs.length} documents');
+      print('Firestore: Found ${docs.length} documents');
       int onePrint = 0;
       for (var doc in docs) {
         final data = doc.data();
-        // Pretty-/////print JSON with indentation
+        // Pretty-print JSON with indentation
         // final jsonEncoded = JsonEncoder.withIndent('  ').convert({
         //   'docId': doc.id,
         //   'data': data,
         // });
         if (onePrint <= 1) {
-         /////print('Document:\n${data['imageUrls']}');
+         print('Document:\n${data['imageUrls']}');
          onePrint ++;
         }
 
@@ -50,40 +49,40 @@ Future<void> logFirestoreContents() async {
       }
     }
   } catch (e) {
-    /////print('Firestore: Error fetching contents: $e');
+    print('Firestore: Error fetching contents: $e');
   }
-  /////print('=== End Firestore Contents ===\n\n');
+  print('=== End Firestore Contents ===\n\n');
 }
 
 Future<void> logDocumentDirectoryContents() async {
-  /////print('\n\n=== Phone Document Directory Contents (Profile Images) ===');
+  print('\n\n=== Phone Document Directory Contents (Profile Images) ===');
   try {
     final docDir = await getApplicationDocumentsDirectory();
     final profileImagesDir = Directory('${docDir.path}/profile_images');
     
     if (!await profileImagesDir.exists()) {
-      /////print('Profile images directory does not exist: ${profileImagesDir.path}');
+      print('Profile images directory does not exist: ${profileImagesDir.path}');
     } else {
       final entities = profileImagesDir.listSync(recursive: false);
-      /////print('Profile images directory: ${profileImagesDir.path}');
-      /////print('Found ${entities.length} items');
+      print('Profile images directory: ${profileImagesDir.path}');
+      print('Found ${entities.length} items');
       
       if (entities.isEmpty) {
-        /////print('  No files or directories found');
+        print('  No files or directories found');
       } else {
         for (var entity in entities) {
           if (entity is File) {
-            ///////print('  File: ${entity.path} (exists: ${await entity.exists()})');
+            //print('  File: ${entity.path} (exists: ${await entity.exists()})');
           } else if (entity is Directory) {
-            ///////print('  Directory: ${entity.path}');
+            //print('  Directory: ${entity.path}');
           }
         }
       }
     }
   } catch (e) {
-    /////print('Document Directory: Error listing contents: $e');
+    print('Document Directory: Error listing contents: $e');
   }
-  /////print('=== End Document Directory Contents ===\n\n');
+  print('=== End Document Directory Contents ===\n\n');
 }
 
 Future<String> getOptimalGeohashPrefix(userGeohash) async{  
@@ -110,12 +109,12 @@ Future<String> getOptimalGeohashPrefix(userGeohash) async{
   // Test precisions from 4 to 7
   for (int precision = 4; precision <= 7; precision++) {
     String prefix = userGeohash.substring(0, precision);
-    /////print('Testing prefix: $prefix (precision: $precision)');
+    print('Testing prefix: $prefix (precision: $precision)');
 
     // Count profiles with this prefix
     Query<Map<String, dynamic>> countQuery = firestore
         .collection('user_ids')
-        .where('uid', isNotEqualTo: user.uid)
+        .where('name', isNotEqualTo: user.uid)
         .orderBy('geohash')
         .startAt([prefix])
         .endAt([prefix + '\uf8ff']);
@@ -127,12 +126,12 @@ Future<String> getOptimalGeohashPrefix(userGeohash) async{
       // If not available, replace with manual counting
       AggregateQuerySnapshot countSnapshot = await countQuery.count().get();
       profileCount = countSnapshot.count!;  // Assuming the count is not null, return the count
-      /////print('Found $profileCount profiles for prefix: $prefix');
+      print('Found $profileCount profiles for prefix: $prefix');
     } catch (e) {
       // Manual counting fallback
       QuerySnapshot<Map<String, dynamic>> snapshot = await countQuery.get();
       profileCount = snapshot.docs.length;
-      /////print('Found $profileCount profiles for prefix: $prefix (manual count)');
+      print('Found $profileCount profiles for prefix: $prefix (manual count)');
       //////////(e);
     }
 
@@ -154,17 +153,17 @@ Future<String> getOptimalGeohashPrefix(userGeohash) async{
       prefixHolder = prefix;
       profileCountHolder = profileCount;
       precision = precision - 2; // Step back to try a shorter prefix
-      /////print('Too few profiles, try a shorter (less precise) prefix $prefixHolder');
+      print('Too few profiles, try a shorter (less precise) prefix $prefixHolder');
       continue;
     }
   }
 
   if (optimalPrefix == null) {
-    /////print('No prefix found with profile count between $minProfilesPerHash and $maxProfilesPerHash');
+    print('No prefix found with profile count between $minProfilesPerHash and $maxProfilesPerHash');
     return "no hash found"; // Return empty list or handle as needed
   }
 
-  /////print('Using optimal prefix: $optimalPrefix with $profileCount profiles');
+  print('Using optimal prefix: $optimalPrefix with $profileCount profiles');
 
   return optimalPrefix!;
 }
@@ -173,11 +172,11 @@ Future<List<dynamic>> runQuery(query, userLat, userLon) async{  // Run query and
   List profileCountAndLastDoc = [];
   late int profilesQueried;
   try{
-    /////print('attempting query');
+    print('attempting query');
       final querySnapshot = await query.get();
       final profiles = querySnapshot.docs;
 
-      /////print('Got ${profiles.length} profiles from firestore');
+      print('Got ${profiles.length} profiles from firestore');
       
       List<Map<dynamic, dynamic>> batchProfiles = [];
       String? lastDocIdReturned;
@@ -189,7 +188,7 @@ Future<List<dynamic>> runQuery(query, userLat, userLon) async{  // Run query and
 
         if (lat2 == 0.0 || lon2 == 0.0) continue;  // skips invalid profiles by setting null lat as 0 and skipping
         
-        ///////print('$userLat, $userLon, $lat2, $lon2');
+        //print('$userLat, $userLon, $lat2, $lon2');
 
         double meters = Geolocator.distanceBetween(
           userLat, 
@@ -205,7 +204,7 @@ Future<List<dynamic>> runQuery(query, userLat, userLon) async{  // Run query and
 
         // Cache images locally
         final phoneNumber =
-            data['uid']?.toString().replaceFirst('testUser', '') ?? 'Unknown';
+            data['name']?.toString().replaceFirst('testUser', '') ?? 'Unknown';
         final imagePaths = (data['imagePaths'] as List<dynamic>?)
                 ?.where((url) => url is String && url.isNotEmpty)
                 .toList() ??
@@ -240,9 +239,10 @@ Future<List<dynamic>> runQuery(query, userLat, userLon) async{  // Run query and
         final profile = {
           'profilePic': profilePic,
           'images': cachedImagePaths,
-          'name': phoneNumber,
+          'hashedId': data['hashedId'],
+          'name': data['name'],
           'phone': data['phone'],
-          'age': 'N/A',
+          'age': data['age'],
           'height': data['height'] ?? 'N/A',
           'location': 'Euless, TX',
           'geohash': data['geohash'],
@@ -273,10 +273,10 @@ Future<List<dynamic>> runQuery(query, userLat, userLon) async{  // Run query and
       } else {  // Continue as usual
         await sqlite.DatabaseHelper.instance.cacheAllOtherUserProfiles(batchProfiles);
 
-        /////print('First profile retrieved: ${batchProfiles[0]['phone']}');
-        /////print('Last profile retrieved: ${batchProfiles.last['phone']}');
+        print('First profile retrieved: ${batchProfiles[0]['phone']}');
+        print('Last profile retrieved: ${batchProfiles.last['phone']}');
         
-        /////print('${profiles.length} profiles have been cached');
+        print('${profiles.length} profiles have been cached');
 
         profilesQueried = profiles.length;
 
@@ -290,14 +290,14 @@ Future<List<dynamic>> runQuery(query, userLat, userLon) async{  // Run query and
       }
     } 
     catch(e) {
-      /////print('You need to log in');
+      print('You need to log in');
       //////////(e);
     }
     return profileCountAndLastDoc;
 }
 
 Future<void> fetchInitialEntries(String? nextDocId, optimalHash, userLat, userLon) async {
-  /////print('fetching initial profiles... ');
+  print('fetching initial profiles... ');
   try {
     final firestore = FirebaseFirestore.instance;  // Firestore reference
     final user = FirebaseAuth.instance.currentUser;
@@ -308,7 +308,7 @@ Future<void> fetchInitialEntries(String? nextDocId, optimalHash, userLat, userLo
 
     Query<Map<String, dynamic>> query = firestore  // 10 miles 82 profiles 78 sec
       .collection('user_ids')
-      .where('uid', isNotEqualTo: user.uid)  // Don't load in the users own profile
+      .where('name', isNotEqualTo: user.uid)  // Don't load in the users own profile
       .orderBy('geohash')
       .startAt([optimalHash])
       .endAt([optimalHash + '\uf8ff'])  /////////////////////////////////////////////////////////////////////
@@ -316,7 +316,7 @@ Future<void> fetchInitialEntries(String? nextDocId, optimalHash, userLat, userLo
 
     // Query<Map<String, dynamic>> query = firestore  // 10 miles 82 profiles 88 sec
     //   .collection('user_ids')
-    //   .where('uid', isNotEqualTo: user.uid)
+    //   .where('name', isNotEqualTo: user.uid)
     //   .where('geohash', isEqualTo: hash) // 6 char hashes must exactly match 
     //   .limit(105);
 
@@ -330,13 +330,13 @@ Future<void> fetchInitialEntries(String? nextDocId, optimalHash, userLat, userLo
     // Run query
     await runQuery(query, userLat, userLon);
     stopwatch.stop();
-    /////print('Elapsed time: ${stopwatch.elapsedMilliseconds} ms');
-    /////print('Empty hashes: $zs');
+    print('Elapsed time: ${stopwatch.elapsedMilliseconds} ms');
+    print('Empty hashes: $zs');
   }   
   catch (e) {
-    /////print('Error fetching profiles: $e');
+    print('Error fetching profiles: $e');
   }
-  ///////print('Profiles from firestore function: $allProfiles');
+  //print('Profiles from firestore function: $allProfiles');
 }
 
 List<List<String>> shortenGeohashRings(List<List<String>> geohashRings, String optimalPrefix, int shortenMethod) {
@@ -373,52 +373,52 @@ List<List<String>> shortenGeohashRings(List<List<String>> geohashRings, String o
           ...geohashRings.sublist(firstMatchIndex + 1),
         ];
       
-      // /////print('optimalPrefix: $optimalPrefix');
-      // /////print('Matching 5-char prefix: ${optimalPrefix.substring(0, 5)}');
-      // /////print('firstMatchIndex: $firstMatchIndex');
-      // /////print('targetRing: $targetRing');
-      // /////print('remainingHashes: $remainingHashes');
-      // /////print('filteredRings: $filteredRings');
+      // print('optimalPrefix: $optimalPrefix');
+      // print('Matching 5-char prefix: ${optimalPrefix.substring(0, 5)}');
+      // print('firstMatchIndex: $firstMatchIndex');
+      // print('targetRing: $targetRing');
+      // print('remainingHashes: $remainingHashes');
+      // print('filteredRings: $filteredRings');
     }
   }
 
   // Log for debugging
   // if (filteredRings.length == geohashRings.length) {
-  //   /////print('No rings removed; all rings have at least one hash not matching prefix: $optimalPrefix');
+  //   print('No rings removed; all rings have at least one hash not matching prefix: $optimalPrefix');
   // } else {
-  //   /////print('Removed ${geohashRings.length - filteredRings.length} rings where all hashes matched prefix: $optimalPrefix');
+  //   print('Removed ${geohashRings.length - filteredRings.length} rings where all hashes matched prefix: $optimalPrefix');
   // }
 
   return filteredRings;
 }
 
-Future<Map<dynamic, dynamic>> requeryHash(firestore, hash, lastDocSnapshot, userLat, userLon) async{
+Future<Map<dynamic, dynamic>> requeryHash(firestore, hash, lastDocSnapshot, userLat, userLon, profilesQueried) async{
   bool requerying = true;
   bool depleted = false;
-  int profilesQueried = 0;
+  //int profilesQueried = 0;
 
-  /////print('This is a requery of hash $hash!');
+  print('This is a requery of hash $hash!');
 
   // If this is the second pagination requery, the lastDocSnapshot was saved to sqlite as a Map, but firebase will need the snapshot datatype 
   if (lastDocSnapshot is Map<String, dynamic>) {
-    /////print('This is the intial pagination requery. Starting profile: ${lastDocSnapshot['phone']}');
+    print('This is the intial pagination requery. Starting profile: ${lastDocSnapshot['phone']}');
     // The lastDocSnapshot is a Map, and .startAfterDocument needs a firebase type, so retrieve the actual snapshot based on the doc id (phone number)
     try {
       lastDocSnapshot = await firestore.collection('user_ids').doc(lastDocSnapshot['phone']).get();
-      /////print('Fetched DocumentSnapshot for docId: ${lastDocSnapshot['phone']}');
+      print('Fetched DocumentSnapshot for docId: ${lastDocSnapshot['phone']}');
     } catch (e) {
-      /////print('Error fetching DocumentSnapshot (${lastDocSnapshot['phone']}): $e');
+      print('Error fetching DocumentSnapshot (${lastDocSnapshot['phone']}): $e');
       lastDocSnapshot = null;
     }
   } else {
     var data = lastDocSnapshot.data();
-    /////print('This is a requery of a new hash query.');
+    print('This is a requery of a new hash query.');
   }
 
   while (requerying) {  // This repeates the requery as long as the last query continues to return 105 profiles
     Query<Map<String, dynamic>> requeryHash = firestore  // 10 miles 82 profiles 78 sec
       .collection('user_ids')
-      //.where('uid', isNotEqualTo: user.uid) Wow don't include this it breaks startAfterDocument. Also, it is already filtered out client side in the runQuery function
+      //.where('name', isNotEqualTo: user.uid) Wow don't include this it breaks startAfterDocument. Also, it is already filtered out client side in the runQuery function
       .orderBy('geohash')
       .startAfterDocument(lastDocSnapshot)  // CHECK does this cost extra
       .endAt([hash + '\uf8ff'])  
@@ -436,7 +436,7 @@ Future<Map<dynamic, dynamic>> requeryHash(firestore, hash, lastDocSnapshot, user
     profilesQueried += lastCount;
 
     if (lastCount < max_profiles) {  // exit the requery loop if the last query depeletes the current hash
-      /////print('$hash has been depleted. Breaking requery loop.');
+      print('$hash has been depleted. Breaking requery loop.');
       requerying = false;
       depleted = true;
       break;
@@ -444,8 +444,8 @@ Future<Map<dynamic, dynamic>> requeryHash(firestore, hash, lastDocSnapshot, user
 
     // The last profile is not saved to sqlite here. Instead, wait untill the hash loop limit check in fetchProfilesInRings()
     if (profilesQueried >= 210) {  // Be sure to exit the requery while loop if the query profile limit is reached
-      /////print('Requery while loop found $lastCount profiles and the total count has reached $profilesQueried');
-      /////print('Breaking loop and saving last profile to sqlite');
+      print('Requery while loop found $lastCount profiles and the total count has reached $profilesQueried');
+      print('Breaking loop and saving last profile to sqlite');
       break;
     }
   }
@@ -480,19 +480,38 @@ Future<void> fetchProfilesInRings(int radius, centerGeohash) async{  // get ring
     requeryBool = false;
   }
 
-  /////print('RequeryBool: $requeryBool');
+  print('RequeryBool: $requeryBool');
 
   // Get current location
-  Position position = await Geolocator.getCurrentPosition(
-      desiredAccuracy: LocationAccuracy.high);
-  final userLat = position.latitude;
-  final userLon = position.longitude;
-  /////print('Got user location: $userLat, $userLon');
+  
+  // This resets the location every time. To make sure it doesn't generate hash lists that are offset from the initial query, the users central location (the location of account creation) should be used. 
+  // Position position = await Geolocator.getCurrentPosition(
+  //     desiredAccuracy: LocationAccuracy.high);
+  // final userLat = position.latitude;
+  // final userLon = position.longitude;
+  // print('Got user location: $userLat, $userLon');
+
+  Map<String, dynamic>? position = await sqlite.DatabaseHelper.instance.getUserLocation('central_location');  // This may break if the permissions are not granted and the app tries to run the first time. Pretty sure I already fixed it though.
+  final userLat = position!['latitude'];
+  final userLon = position['longitude'];
+  print('Got user location: $userLat, $userLon');
 
   // Generate ring list
+  // First cache trigger hashes
+  Map<int, String> collectedTriggerHashes = await sqlite.DatabaseHelper.instance.getTriggerHashes();
+  List radiusArgs = [5, 10, 25, 50, 75, 100, 125, 150, 175, 200];
+  for (int radiusArg in radiusArgs.sublist(0, radiusArgs.indexOf(radius))) {  // This gets everything to the current radius arg non-inclusive
+    if (!collectedTriggerHashes.containsKey(radiusArg)) {
+      List<List<String>> ringsForTriggerHashes = await geohash_grid.collectGeohashesInRings(userLat, userLon, radius, centerGeohash);  // get rings 
+      sqlite.DatabaseHelper.instance.cacheTriggerHash(radius, ringsForTriggerHashes.last.last);  // Add the last hash of the last ring to the map for the given radius. Now, no matter what, if the last radius is hit, the ring algo caches the correct completed radius
+    }
+  }
+
   List<List<String>> geohashRings = await geohash_grid.collectGeohashesInRings(userLat, userLon, radius, centerGeohash);  // get rings 
-  ///////print('full ring list $geohashRings');
-  
+  //print('full ring list $geohashRings in $radius mile radius');
+  sqlite.DatabaseHelper.instance.cacheTriggerHash(radius, geohashRings.last.last);  // Add the last hash of the last ring to the map for the given radius. Now, no matter what, if the last radius is hit, the ring algo caches the correct completed radius
+  print('Cached trigger hash: ${geohashRings.last.last} for $radius mile radius');
+
   // There are three different ways the list can be shortened
   //
   // 1. This is the first query and the list should have the large initially queried prefix removed
@@ -507,10 +526,10 @@ Future<void> fetchProfilesInRings(int radius, centerGeohash) async{  // get ring
   // If this is a pagination requery, the last profile was saved and should be retrieved from sqlite
   Map<String, dynamic>? lastProfileSnapshot = await sqlite.DatabaseHelper.instance.getLastFirebaseProfile();
   // if (lastProfileSnapshot != null) {  // There is a 'last profile' saved every time the query function is run. The resume query only needs to happen if 
-  //   /////print('not null: ${lastProfileSnapshot['phone']}');
+  //   print('not null: ${lastProfileSnapshot['phone']}');
   //   // This is only accessed after the query limit of 210 is met. Then upon requery the list of hashes should be shortened, the first query should start at the last profile, and the next hashes should be iterated
   // } else {
-  //   /////print('null');
+  //   print('null');
   // }
 
   // If this is a new radius query, the largest old radius should be retrieved from sqlite to be removed from the generated ring list  
@@ -520,61 +539,74 @@ Future<void> fetchProfilesInRings(int radius, centerGeohash) async{  // get ring
   late List<List<String>> shortenedRings;
   String radiusPrefix = '';
   if (radii.isEmpty && lastProfileSnapshot == null) {  // If so this is the first query and the optimal prefix contianing the first batch of profiles should be removed
-    /////print('No radii found, this must be the inital ring algo');
+    print('No radii found, this must be the inital ring algo');
     shortenedRings = shortenGeohashRings(geohashRings, optimalPrefix!, 1);  // This is good for the initial prefix, but on subsequent queries the rings need to be shortened up to the ring containing the target hash of the last radius   
   } else if (radii.isNotEmpty) {  // Otherwise the preffix should be recaculated for the last radius collected 
     radiusPrefix = await geohash_grid.getTargetGeohash(userLat, userLon, radii.reduce(math.max));
     shortenedRings = shortenGeohashRings(geohashRings, radiusPrefix, 2);
   } else if (lastProfileSnapshot != null) {
     String lastProfilePrefix = lastProfileSnapshot['geohash'];
-    /////print('Unshortened hash of last profile: $lastProfilePrefix');
+    print('Unshortened hash of last profile: $lastProfilePrefix');
     shortenedRings = shortenGeohashRings(geohashRings, lastProfilePrefix, 3);
 
     if (requeryBool != null && !requeryBool) {
-      /////print('\n\n');
-      /////print('The hash that was depleted last time should be removed upon this pagination query!');
+      print('\n\n');
+      print('The hash that was depleted last time should be removed upon this pagination query!');
       String lastProfilePrefix = lastProfileSnapshot['geohash'].substring(0, 5);
       shortenedRings = shortenGeohashRings(geohashRings, lastProfilePrefix, 4);
-      /////print('Hash removed: $lastProfilePrefix');
+      print('Hash removed: $lastProfilePrefix');
     }
 
-    /////print('\n\n');
+    print('\n\n');
     //////////(shortenedRings);
-    /////print('\n\n');
+    print('\n\n');
   }
   
-  ///////print('User hash $centerGeohash');
-  ///////print('User ID ${user.uid}');
-  ///////print('Optimal prefix $optimalPrefix');
-  ///////print('New prefix $newPrefix');
-  ///////print('Shortened rings list $shortenedRings');
+  //print('User hash $centerGeohash');
+  //print('User ID ${user.uid}');
+  //print('Optimal prefix $optimalPrefix');
+  //print('New prefix $newPrefix');
+  //print('Shortened rings list $shortenedRings');
 
   if (shortenedRings.isEmpty) {  // Check if the optimal prefix contains all rings in radius
+    sqlite.DatabaseHelper.instance.cacheCollectedRadiusArg(radius);  // If the shortener depletes the radius, cache it.
+    print('The shortener depleted the entire radius! Cached trigger hash: ${geohashRings.last.last} for $radius mile radius');
     pagination_buttons.toggleRings(false);
     filters_menu.toggleRings(false);
     navigation_bar.toggleRings(false);
     return;
   }
 
+  Map<int, String> triggerHashes = await sqlite.DatabaseHelper.instance.getTriggerHashes(); 
+  print('Trigger hashes: $triggerHashes');
+
   for (List ring in shortenedRings) {
     for (String hash in ring) {
+
+      for (int key in triggerHashes.keys) { // Cache the radius if trigger hash hit
+        String triggerHash = triggerHashes[key]!;
+        if (triggerHash == hash) {
+          sqlite.DatabaseHelper.instance.cacheCollectedRadiusArg(key);
+        } 
+      }
+
       if (radii.isEmpty && optimalPrefix != null) {
         if (hash.contains(optimalPrefix!)) {  // This should take care of duplicates in the intial ring
-          /////print('Hash contains optimal prefix $hash');
+          print('Hash contains optimal prefix $hash');
           continue;
         }
       } else if (radiusPrefix != ''){
         if (hash.contains(radiusPrefix)) {  // This should take care of duplicates in all rings after the intial ring
-          /////print('Hash contains optimal prefix $hash');
+          print('Hash contains optimal prefix $hash');
           continue;
         }
       }
 
       // If this is a pagination requery, the correct hash is started in the for loop, but only the remaining profiles should be queried. Run the requery while loop until it depletes the current hash
       if (lastProfileSnapshot != null && !dontRequeryOldHash && requeryBool! ) {  // Don't requery if the last requery depleted the hash
-        requeryData = await requeryHash(firestore, hash, lastProfileSnapshot, userLat, userLon);
+        requeryData = await requeryHash(firestore, hash, lastProfileSnapshot, userLat, userLon, profilesQueried);
         profilesQueried += requeryData['profilesQueried'] as int;
-        /////print('count after intial pagination requery: $profilesQueried');
+        print('count after intial pagination requery: $profilesQueried');
         lastHashDepleted = requeryData['depleted'];
       }
 
@@ -588,20 +620,20 @@ Future<void> fetchProfilesInRings(int radius, centerGeohash) async{  // get ring
         lastHashDepleted = false;  // Avoid continueing over and over agian, but use the bool bellow to lock the initial requery 
         dontRequeryOldHash = true;  // The old hash was depleted, so keep the requery from activating when the inner for loop restarts after the continue
         requeryBool = false;  
-        /////print('Last hash depleted, iterating to next hash');
+        print('Last hash depleted, iterating to next hash');
         continue;
       }
 
       // dontRequeryOldHash = false;  do not reset so that next time the for loop restarts, it continues to the next hash
       // This is only reset each time the ring algo is restarted
       
-      /////print('\n\n');
-      /////print('\n\n');
-      /////print('Next hash queried: $hash');
+      print('\n\n');
+      print('\n\n');
+      print('Next hash queried: $hash');
 
       Query<Map<String, dynamic>> query = firestore  // 10 miles 82 profiles 78 sec
         .collection('user_ids')
-        //.where('uid', isNotEqualTo: user.uid)  // Don't load in the users own profile
+        //.where('name', isNotEqualTo: user.uid)  // Don't load in the users own profile
         .orderBy('geohash')
         .startAt([hash])
         .endAt([hash + '\uf8ff'])  /////////////////////////////////////////////////////////////////////
@@ -616,9 +648,9 @@ Future<void> fetchProfilesInRings(int radius, centerGeohash) async{  // get ring
         // Some of the time, the last hash will be empty on the first query, in that case this works.
         // Otherwise, if the last hash is requeried until it is depleted, this code needs to be repeated after the last requery
         if (ring == shortenedRings.last && hash == ring.last) {  // Check if the radius has been fully searched when the last ring index has finished querying all hashes 
-          /////print('The last hash in the radius was empty!');
-          /////print('Ring algo stopped as there are no more hashes in within $radius miles. Collected and cached $profilesQueried new profiles.');
-          /////print('Cached radii: ${sqlite.DatabaseHelper.instance.getCachedRadii()}');
+          print('The last hash in the radius was empty!');
+          print('Ring algo stopped as there are no more hashes in within $radius miles. Collected and cached $profilesQueried new profiles.');
+          print('Cached radii: ${sqlite.DatabaseHelper.instance.getCachedRadii()}');
           sqlite.DatabaseHelper.instance.cacheCollectedRadiusArg(radius);  // Add the radius just FULLY cached to the radiusArgsCached list so that the grid isnt checked again  
         }
 
@@ -629,13 +661,13 @@ Future<void> fetchProfilesInRings(int radius, centerGeohash) async{  // get ring
         profilesQueried += lastCount;
       }
 
-      /////print('count after new hash query: $profilesQueried');
-      /////print('\n\n');
+      print('count after new hash query: $profilesQueried');
+      print('\n\n');
       var data = lastDocSnapshot.data();
       if (profilesQueried >= 210) {  // The for ring for hash loops should break if there are 210 profiles ready for the user to scroll through. It won't start again until the page is incremented 
         sqlite.DatabaseHelper.instance.saveLastFirebaseProfile(lastDocSnapshot.data());  // Save the last profile snapshot locally only if the query limit is reached. It should be reset after the radius is fully depleted
-        /////print('\n\n');
-        /////print('Limit reached after new hash query. Last queried hash: ${data['phone']}');
+        print('\n\n');
+        print('Limit reached after new hash query. Last queried hash: ${data['phone']}');
         if (lastCount < max_profiles) {
           // the next time the queries are started the hash that got depleted last time should be removed, and the requery function should not run.
           requeryBool = false;
@@ -650,18 +682,18 @@ Future<void> fetchProfilesInRings(int radius, centerGeohash) async{  // get ring
       
       // If the last query did not reach the limit, and it was = 105, requery the current hash
       if (lastCount == max_profiles) {
-        requeryData = await requeryHash(firestore, hash, lastDocSnapshot, userLat, userLon);  // THIS IS A WHILE LOOP THAT BREAKS
+        requeryData = await requeryHash(firestore, hash, lastDocSnapshot, userLat, userLon, profilesQueried);  // THIS IS A WHILE LOOP THAT BREAKS
         profilesQueried += requeryData['profilesQueried'] as int;
 
-        /////print('count after requery: $profilesQueried');
+        print('count after requery: $profilesQueried');
       }
 
       // This needs to break the for loop after the requery while loop is broken, otherwise it restarts the hash for loop at the next hash
       if (profilesQueried >= 210) {  // The for ring for hash loops should break if there are 210 profiles ready for the user to scroll through. It won't start again until the page is incremented 
         // This is not called in the requery loop, so save it here. That way, if the requery depletes the hash AND hits the limit, OR if the requery only reaches the limit without depleteing, the last doc is saved 
         sqlite.DatabaseHelper.instance.saveLastFirebaseProfile(requeryData['lastDocSnapshot'].data()); 
-        /////print('\n\n');
-        /////print('Limit reached after hash requery.');
+        print('\n\n');
+        print('Limit reached after hash requery.');
         if (requeryData['profilesQueried'] < max_profiles) {
           // the next time the queries are started the hash that got depleted last time should be removed, and the requery function should not run.
           requeryBool = false;
@@ -676,9 +708,9 @@ Future<void> fetchProfilesInRings(int radius, centerGeohash) async{  // get ring
   
       // This is only here for the case that the last hash in the radius is a requery. Check if the radius has been fully searched when the last ring for loop has finished querying all hashes. 
       if (ring == shortenedRings.last && hash == ring.last) {  
-        /////print('The last hash in the radius was either depleted after one query or it was a requery!');
-        /////print('Ring algo stopped as there are no more hashes in within $radius miles. Collected and cached $profilesQueried new profiles.');
-        /////print('Cached radii: ${sqlite.DatabaseHelper.instance.getCachedRadii()}');
+        print('The last hash in the radius was either depleted after one query or it was a requery!');
+        print('Ring algo stopped as there are no more hashes in within $radius miles. Collected and cached $profilesQueried new profiles.');
+        print('Cached radii: ${sqlite.DatabaseHelper.instance.getCachedRadii()}');
         sqlite.DatabaseHelper.instance.cacheCollectedRadiusArg(radius);  // Add the radius just FULLY cached to the radiusArgsCached list so that the grid isnt checked again  
       }
 
@@ -696,19 +728,19 @@ Future<void> fetchProfilesInRings(int radius, centerGeohash) async{  // get ring
 
     // Break out of the ring for loop as well
     if (profilesQueried >= 210) {  // If the requery data is keeping track of the count and not the profiles queried, it should be checked with an OR. CHECK change this to be only the one var later
-      /////print('Ring algo stopped as there are $profilesQueried new profiles cached');
+      print('Ring algo stopped as there are $profilesQueried new profiles cached');
       break;
     }
   }  // for ring in rings
 
   stopwatch.stop();
-  /////print('Elapsed time: ${stopwatch.elapsedMilliseconds} ms');
-  /////print('\n\n');
-  /////print('\n\n');
-  /////print('\n\n');
-  /////print('\n\n');
-  /////print('\n\n');
-  /////print('\n\n');
+  print('Elapsed time: ${stopwatch.elapsedMilliseconds} ms');
+  print('\n\n');
+  print('\n\n');
+  print('\n\n');
+  print('\n\n');
+  print('\n\n');
+  print('\n\n');
 
   pagination_buttons.toggleRings(false);
   filters_menu.toggleRings(false);
@@ -738,7 +770,7 @@ Future<String> _cacheImage(String storagePath, String phoneNumber, String docId)
     await sqlite.DatabaseHelper.instance.cacheImage(docId, storagePath, filePath);
     return filePath;
   } catch (e) {
-    /////print('Error caching image for $storagePath: $e');
+    print('Error caching image for $storagePath: $e');
     return '';
   }
 }
