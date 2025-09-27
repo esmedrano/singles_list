@@ -7,7 +7,7 @@ import 'package:integra_date/scripts/create_profile_url.dart' as create_profile_
 
 void showProfileDialog({
   required BuildContext context,
-  required String? imagePath, // Updated: Allow null imagePath
+  required Future<String?>? imagePath, // Updated: Allow null imagePath
   required int index,
   required Function(String) onMenuAction,
   required Offset tapPosition,
@@ -50,7 +50,7 @@ void showProfileDialog({
                     width: MediaQuery.of(context).size.width * 0.8,
                     height: MediaQuery.of(context).size.width * 0.8,
                     child: FutureBuilder<String?>(
-                      future: _getImagePath(imagePath, profileId),
+                      future: imagePath,
                       builder: (context, snapshot) {
                         print('showProfileDialog: Loading image for profile $profileId, imagePath=$imagePath, connectionState=${snapshot.connectionState}');
                         if (snapshot.connectionState == ConnectionState.waiting) {
@@ -130,7 +130,7 @@ void showProfileDialog({
                           },
                         ),
                         ListTile(
-                          title: const Text('Action 2'),
+                          title: const Text('save'),
                           onTap: () {
                             onMenuAction('action2');
                             menuOverlay?.remove();
@@ -162,20 +162,33 @@ void showProfileDialog({
   });
 }
 
-Future<String?> _getImagePath(String? imagePath, String profileId) async {
-  if (imagePath == null || !File(imagePath).existsSync()) {
-    final cachedPath =
-        await sqlite.DatabaseHelper.instance.getCachedImage(profileId, imagePath ?? '');
-    if (cachedPath != null && File(cachedPath).existsSync()) {
-      print('showProfileDialog: Retrieved cached image $cachedPath for profile $profileId');
-      return cachedPath;
-    }
-    print('showProfileDialog: No valid image path for profile $profileId');
-    return null;
-  }
-  print('showProfileDialog: Using provided image path $imagePath for profile $profileId');
-  return imagePath;
-}
+// Future<String?> _getImagePath(String? imagePath, String profileId) async {
+//   if (imagePath == null || !File(imagePath).existsSync()) {
+//     final cachedPath =
+//         await sqlite.DatabaseHelper.instance.getCachedImage(profileId, imagePath ?? '');
+//     if (cachedPath != null && File(cachedPath).existsSync()) {
+//       print('showProfileDialog: Retrieved cached image $cachedPath for profile $profileId');
+//       return cachedPath;
+//     }
+//     print('showProfileDialog: No valid image path for profile $profileId');
+//     return null;
+//   }
+//   print('showProfileDialog: Using provided image path $imagePath for profile $profileId');
+//   return imagePath;
+// }
+
+// Future<List<String?>?> _getImagePath(
+//       String? imagePath, String profileId) async {
+//     if (imagePath == null || !File(imagePath).existsSync()) {
+//       final cachedPath = await sqlite.DatabaseHelper.instance.getCachedImage(
+//           profileId, imagePath ?? '');
+//       if (cachedPath != null && File(cachedPath).existsSync()) {
+//         return cachedPath;
+//       }
+//       return null;
+//     }
+//     return imagePath;
+//   }
 
 void showBannerDialog({
   required BuildContext context,
@@ -190,6 +203,11 @@ void showBannerDialog({
   OverlayEntry? menuOverlay;
 
   final deepLinkHandler = create_profile_url.DeepLinkHandler();
+  final profilePictureHeight  = (MediaQuery.of(context).size.width - 10); 
+  final bannerHeight = profilePictureHeight + 214;
+  final double expandedPicturesHeight = 407;
+
+  //final profilePictures = _getImagePath(profile['images'], profile['name']);
 
   showDialog(
     context: context,
@@ -214,19 +232,31 @@ void showBannerDialog({
                 Navigator.of(context).pop();
               },
               child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisAlignment: MainAxisAlignment.start,
                 children: [
                   Container(
                     key: bannerKey,
                     width: MediaQuery.of(context).size.width * 0.9,
                     child: BannerContent(
+                      bannerHeight: bannerHeight,
+                      profilePictureHeight: profilePictureHeight,
+                      expandedPicturesHeight: expandedPicturesHeight,
                       profile: profile,
+                      //profilePictures: profilePictures,
                       picsAreExpanded: picsAreExpanded,
-                      onProfileTap: () {},
-                      onIntroToggle: () {},
+                      introIsExpanded: false,
+                      onProfileTap: () {},  // These don't need to do anything because this is basically just a picture of the profile 
+                      onIntroToggle: () {},  // These don't need to do anything because this is basically just a picture of the profile
+                      onPicsToggle: () {},  // These don't need to do anything because this is basically just a picture of the profile
+                      onSharePress: () {},  // These don't need to do anything because this is basically just a picture of the profile
+                      onSwipePress: () {},  // These don't need to do anything because this is basically just a picture of the profile
+                      profileSaved: false,
+                      profileLiked: false,
+                      profileDisliked: false,
+                      toggleProfile: (String, bool) {return Future(() {});}, 
                     ),
                   ),
-                  SizedBox(height: MediaQuery.of(context).size.height * 0.25),
+                  //SizedBox(height: MediaQuery.of(context).size.height * 0.25),
                 ],
               ),
             ),
@@ -285,7 +315,7 @@ void showBannerDialog({
                           },
                         ),
                         ListTile(
-                          title: const Text('Action 2'),
+                          title: const Text('save'),
                           onTap: () {
                             onMenuAction('action2');
                             menuOverlay?.remove();

@@ -117,6 +117,11 @@ class _DatabasePageState extends State<DatabasePage> {
     final ThemeData theme = Theme.of(context);
     calculateGridHeight(context);
 
+    if (banner_view.BannerView.profilePictureHeight == 0.0) {
+      banner_view.BannerView.profilePictureHeight = MediaQuery.of(context).size.width - 10;
+      //print('Set bannerHeight to: ${banner_view.BannerView.bannerHeight}'); // Debug
+    }
+
     return Column(
       mainAxisAlignment: MainAxisAlignment.start,
       children: [
@@ -133,17 +138,17 @@ class _DatabasePageState extends State<DatabasePage> {
           child: Text('log sqlite data')
         ),
 
-        TextButton(onPressed: () async{
-            logFirestoreContents();
-          }, 
-          child: Text('log firestore data')
-        ),
+        // TextButton(onPressed: () async{
+        //     logFirestoreContents();
+        //   }, 
+        //   child: Text('log firestore data')
+        // ),
 
-        TextButton(onPressed: () async{
-            logDocumentDirectoryContents();
-          }, 
-          child: Text('log phone doc dir data')
-        ),
+        // TextButton(onPressed: () async{
+        //     logDocumentDirectoryContents();
+        //   }, 
+        //   child: Text('log phone doc dir data')
+        // ),
 
         Expanded(
           child: isBannerView
@@ -162,6 +167,7 @@ class _DatabasePageState extends State<DatabasePage> {
                   onNextPage: widget.onNextPage,
                   pageCount: widget.pageCount,
                   filteredPageCount: widget.filteredPageCount,
+
                 )
               : grid_view.BoxView(
                   scrollController: _scrollController,

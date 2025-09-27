@@ -165,6 +165,7 @@ Future<String> getOptimalGeohashPrefix(userGeohash) async{
 
   print('Using optimal prefix: $optimalPrefix with $profileCount profiles');
 
+  sqlite.DatabaseHelper.instance.setOptimalPrefix(optimalPrefix!);
   return optimalPrefix!;
 }
 
@@ -203,8 +204,9 @@ Future<List<dynamic>> runQuery(query, userLat, userLon) async{  // Run query and
         ////////////(distance);
 
         // Cache images locally
-        final phoneNumber =
-            data['name']?.toString().replaceFirst('testUser', '') ?? 'Unknown';
+        // final phoneNumber =
+        //     data['name']?.toString().replaceFirst('testUser', '') ?? 'Unknown';
+        final hashedId = data['hashedId'];
         final imagePaths = (data['imagePaths'] as List<dynamic>?)
                 ?.where((url) => url is String && url.isNotEmpty)
                 .toList() ??
@@ -227,7 +229,12 @@ Future<List<dynamic>> runQuery(query, userLat, userLon) async{  // Run query and
         // }  // 10 miles 82 profiles 78 seconds 
 
         String profilePicPath = imagePaths[0];  // This only downloads and caches the profile pic. The other pictures can be downloaded and cached when the full profile is opened
-        final cachedProfilePicPath = await _cacheImage(profilePicPath, phoneNumber, doc.id);
+        
+        for (String path in imagePaths) {
+          await sqlite.DatabaseHelper.instance.cacheFireStoragePaths(hashedId, path);
+        }
+
+        final cachedProfilePicPath = await _cacheImage(profilePicPath, hashedId, doc.id);
         if (cachedProfilePicPath.isNotEmpty) {
           cachedImagePaths.add(cachedProfilePicPath);
           profilePic = cachedProfilePicPath;
@@ -297,6 +304,7 @@ Future<List<dynamic>> runQuery(query, userLat, userLon) async{  // Run query and
 }
 
 Future<void> fetchInitialEntries(String? nextDocId, optimalHash, userLat, userLon) async {
+  List profileCountAndLastDoc = [];
   print('fetching initial profiles... ');
   try {
     final firestore = FirebaseFirestore.instance;  // Firestore reference
@@ -540,6 +548,9 @@ Future<void> fetchProfilesInRings(int radius, centerGeohash) async{  // get ring
   String radiusPrefix = '';
   if (radii.isEmpty && lastProfileSnapshot == null) {  // If so this is the first query and the optimal prefix contianing the first batch of profiles should be removed
     print('No radii found, this must be the inital ring algo');
+    if (optimalPrefix == null) {
+      optimalPrefix = await sqlite.DatabaseHelper.instance.getOptimalPrefix();
+    }
     shortenedRings = shortenGeohashRings(geohashRings, optimalPrefix!, 1);  // This is good for the initial prefix, but on subsequent queries the rings need to be shortened up to the ring containing the target hash of the last radius   
   } else if (radii.isNotEmpty) {  // Otherwise the preffix should be recaculated for the last radius collected 
     radiusPrefix = await geohash_grid.getTargetGeohash(userLat, userLon, radii.reduce(math.max));
@@ -747,7 +758,7 @@ Future<void> fetchProfilesInRings(int radius, centerGeohash) async{  // get ring
   navigation_bar.toggleRings(false);
 }
 
-Future<String> _cacheImage(String storagePath, String phoneNumber, String docId) async {
+Future<String> _cacheImage(String storagePath, String hashedId, String docId) async {
   try {
     // Resolve path into URL (emulator or prod)
     final ref = firebase_storage.FirebaseStorage.instance.ref().child(storagePath);
@@ -757,7 +768,7 @@ Future<String> _cacheImage(String storagePath, String phoneNumber, String docId)
     final fileName = uri.pathSegments.last;
 
     final docDir = await getApplicationDocumentsDirectory();
-    final filePath = '${docDir.path}/profile_images/$phoneNumber/$fileName';
+    final filePath = '${docDir.path}/profile_images/$hashedId/$fileName';
     final file = File(filePath);
 
     if (!await file.exists()) { 

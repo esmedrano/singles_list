@@ -22,7 +22,7 @@ class DatabaseHelper {
       path,
       version: 3,
       onCreate: _onCreate,
-      onUpgrade: _onUpgrade,
+      // onUpgrade: _onUpgrade,
     );
   }
 
@@ -67,6 +67,21 @@ class DatabaseHelper {
         UNIQUE(profile_id, image_url)
       )
     ''');
+    await db.execute('''
+      CREATE TABLE firestorage_paths (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        profile_id TEXT,
+        file_path TEXT,
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE custom_lists (
+        list_name TEXT,
+        name TEXT,
+        profile_data TEXT,
+        PRIMARY KEY (list_name, name)
+      )
+    ''');
     await _initializeFilters(db);
     print('DatabaseHelper: Database created');
   }
@@ -81,25 +96,25 @@ class DatabaseHelper {
     await db.insert('filters', {'key': 'relationshipIntent', 'value': jsonEncode([])}, conflictAlgorithm: ConflictAlgorithm.ignore);
     await db.insert('filters', {'key': 'personalityTypes', 'value': jsonEncode([])}, conflictAlgorithm: ConflictAlgorithm.ignore);
     await db.insert('filters', {'key': 'tags', 'value': jsonEncode([])}, conflictAlgorithm: ConflictAlgorithm.ignore);
-    await db.insert('filters', {'key': 'listSelection', 'value': ''}, conflictAlgorithm: ConflictAlgorithm.ignore);
+    await db.insert('filters', {'key': 'listSelection', 'value': jsonEncode([])}, conflictAlgorithm: ConflictAlgorithm.ignore);
     //print('DatabaseHelper: Initialized default filter values');
   }
 
-  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    if (oldVersion < 3) {
-      await db.execute('''
-        CREATE TABLE cached_images (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          profile_id TEXT,
-          image_url TEXT,
-          file_path TEXT,
-          UNIQUE(profile_id, image_url)
-        )
-      ''');
-      //print('DatabaseHelper: Upgraded database to version $newVersion');
-    }
-    await _initializeFilters(db);
-  }
+  // Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+  //   if (oldVersion < 3) {
+  //     await db.execute('''
+  //       CREATE TABLE cached_images (
+  //         id INTEGER PRIMARY KEY AUTOINCREMENT,
+  //         profile_id TEXT,
+  //         image_url TEXT,
+  //         file_path TEXT,
+  //         UNIQUE(profile_id, image_url)
+  //       )
+  //     ''');
+  //     //print('DatabaseHelper: Upgraded database to version $newVersion');
+  //   }
+  //   await _initializeFilters(db);
+  // }
 
 
 
@@ -323,13 +338,35 @@ class DatabaseHelper {
 
       // Add the new radius-hash pair
       triggerHashes[radius] = hash;
+      print('New list: $triggerHashes');
+
+      // Create a new Map<String, String> for JSON encoding
+      final Map<String, String> encodableMap = {};
+      triggerHashes.forEach((key, value) {
+        encodableMap[key.toString()] = value;
+        print('Encodable entry: key=$key (${key.runtimeType}), value=$value (${value.runtimeType})');
+      });
+      print('Encodable map: $encodableMap (type: ${encodableMap.runtimeType})');
+
+      // Test jsonEncode separately to isolate the issue
+      String jsonString;
+      try {
+        jsonString = jsonEncode(encodableMap);
+        print('JSON encoded: $jsonString');
+      } catch (e) {
+        print('jsonEncode failed: $e');
+        // Fallback: Manually construct JSON string
+        final entries = encodableMap.entries.map((e) => '"${e.key}":"${e.value}"').join(',');
+        jsonString = '{$entries}';
+        print('Fallback JSON: $jsonString');
+      } 
 
       // Store the updated map as JSON
       await db.insert(
         'settings',
         {
           'key': 'triggerHashes',
-          'value': jsonEncode(triggerHashes),
+          'value': jsonString,
         },
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
@@ -395,6 +432,36 @@ class DatabaseHelper {
       return result.first['value'].toString();
     } catch (e) {
       print('DatabaseHelper: Error reading userDocTitle: $e');
+      return '';
+    }
+  }
+
+  Future<void> setOptimalPrefix(String value) async {
+    print('Set optimal prefix: $value');
+    try {
+      final db = await database;
+      await db.insert(
+        'settings',
+        {'key': 'optimalPrefix', 'value': value.toString()},
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    } catch (e) {
+      print('DatabaseHelper: Error saving optimalPrefix: $e');
+    }
+  }
+
+  Future<String> getOptimalPrefix() async {
+    try {
+      final db = await database;
+      final result = await db.query(
+        'settings',
+        where: 'key = ?',
+        whereArgs: ['optimalPrefix'],
+      );
+      print('Got optimal prefix: ${result.first['value'].toString()}');
+      return result.first['value'].toString();
+    } catch (e) {
+      print('DatabaseHelper: Error reading optimalPrefix: $e');
       return '';
     }
   }
@@ -797,11 +864,33 @@ class DatabaseHelper {
     final relationshipIntent = jsonDecode(await getFilterValue('relationshipIntent') ?? '[]') as List;
     final personalityTypes = jsonDecode(await getFilterValue('personalityTypes') ?? '[]') as List;
     final tags = jsonDecode(await getFilterValue('tags') ?? '[]') as List;
-    final listSelection = await getFilterValue('listSelection') ?? '';
+    final listSelections = jsonDecode(await getFilterValue('listSelection') ?? '[]') as List;
+
+    List<List> profileLists = [];
+
+    if (listSelections.contains('hide saved')) {  // Add the likes to the list selections so that matches with the list can be found and excluded rather than included. Matches still need to be found...
+      listSelections.add('saved');
+    }
+
+    if (listSelections.contains('hide likes')) {  // Add the likes to the list selections so that matches with the list can be found and excluded rather than included. Matches still need to be found...
+      listSelections.add('liked');
+    }
+
+    if (listSelections.contains('hide dislikes')) {  // Add the likes to the list selections so that matches with the list can be found and excluded rather than included. Matches still need to be found...
+      listSelections.add('disliked');
+    }
+
+    for (String listName in listSelections) {
+      profileLists.add(await getProfilesInList(listName));
+    }
+
+    print('selected lists: $listSelections');
+    print('got profiles in selected lists: $profileLists');
 
     // await _initializeFilters(await database);  // This should only be done when the database is created. Otherwise the users last filter selection is loaded from the sqlite settings table
     var filteredProfiles = profiles.where((profile) {
       bool matches = true;
+      bool profileInList = false;
 
       if (distanceFilter != null) {
         final profileDistance = double.tryParse(profile['distance']?.replaceAll(' mi', '') ?? '0.0') ?? 0.0;
@@ -837,16 +926,30 @@ class DatabaseHelper {
         matches = matches && profile['tags'].any((tag) => tags.contains(tag));
       }
 
-      if (listSelection.isNotEmpty) {
-        // Implement list-based filtering if applicable
-      }
-      
+      if (listSelections.isNotEmpty && profileLists.any((list) => list.any((profileMap) => profileMap['name'] == profile['name'])) // This part is for displaying all profiles while any of the three lists is hidden
+          || listSelections.isNotEmpty && (!listSelections.contains('hide likes') && !listSelections.contains('hide dislikes') && !listSelections.contains('hide saved'))) {  // this second part is for displaying saved, liked, and disliked 
+        for (List profilesList in profileLists) {
+          for (var listProfile in profilesList) {
+            if (profile['name'].toString().trim() == listProfile['name'].toString().trim()) {
+              if (listSelections.contains('hide likes') || listSelections.contains('hide dislikes') || listSelections.contains('hide saved')) {  // Add the likes to the list selections so that matches with the list can be found and excluded rather than included. Matches still need to be found...
+                profileInList = false;
+              } else {
+                profileInList = true;
+              }
+              print('Match found for profile ${profile['name']}');
+              break; // Exit inner loop
+            }
+          }
+          if (profileInList) break; // Exit outer loop
+        }
+        matches = matches && profileInList;
+      }      
       return matches;
     }).toList();
 
     filteredProfiles.sort((a, b) => double.parse(a['distance'] ?? '0.0').compareTo(double.parse(b['distance'] ?? '0.0')));
-
-    //print('DatabaseHelper: Applied filters, returning ${filteredProfiles.length} profiles');
+    print('DatabaseHelper: Applied filters, returning ${filteredProfiles.length} profiles');
+    print(listSelections.length);
     return filteredProfiles;
   }
 
@@ -905,7 +1008,7 @@ class DatabaseHelper {
       return null;
     }
   }
-
+  
   Future<void> deleteCachedImage(String profileId, String imageUrl) async {
     try {
       final db = await database;
@@ -935,6 +1038,190 @@ class DatabaseHelper {
       //print('DatabaseHelper: Cleared all cached images');
     } catch (e) {
       //print('DatabaseHelper: Error clearing cached images: $e');
+    }
+  }
+
+  Future<void> cacheFireStoragePaths(String profileId, String filePath) async{
+    try {
+      final db = await database;
+      await db.insert(
+        'firestorage_paths',
+        {
+          'profile_id': profileId,
+          'file_path': filePath,
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+      //print('DatabaseHelper: Cached image for profile $profileId, url=$imageUrl, path=$filePath');
+    } catch (e) {
+      //print('DatabaseHelper: Error caching image: $e');
+    }
+  }
+
+  Future<List<String>> getFireStoragePaths(String profileId) async {
+    try {
+      final db = await database;
+      final result = await db.query(
+        'firestorage_paths',
+        where: 'profile_id = ? AND image_url = ?',
+        whereArgs: [profileId],
+      );
+
+      List<String> validPaths = [];
+
+      if (result.isNotEmpty) {
+        for (var row in result) {
+          final filePath = row['file_path'] as String?;
+          if (filePath != null && File(filePath).existsSync()) {
+            //print('DatabaseHelper: Found cached image for profile $profileId, url=$imageUrl, path=$filePath');
+            validPaths.add(filePath);
+          } else {
+            print('DatabaseHelper: Invalid or missing cached image for profile $profileId, path=$filePath');
+            //await deleteCachedImage(profileId);
+          }
+        }
+      }
+
+      //print('DatabaseHelper: Returning ${validPaths.length} valid paths for profile $profileId, url=$imageUrl');
+      return validPaths;
+    } catch (e) {
+      //print('DatabaseHelper: Error reading cached image: $e');
+      return [];
+    }
+  }
+
+
+  ////////// CUSTOM LISTS //////////
+
+  Future<void> addProfileToList(String listName, String name, Map<dynamic, dynamic> profileData) async {
+    try {
+      final db = await database;
+      await db.insert(
+        'custom_lists',
+        {
+          'list_name': listName,
+          'name': name,
+          'profile_data': jsonEncode(profileData),
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+      print('DatabaseHelper: Added profile $name to list $listName');
+    } catch (e) {
+      print('DatabaseHelper: Error adding profile to list $listName: $e');
+    }
+  }
+
+  Future<void> removeProfileFromList(String listName, String name) async {
+    try {
+      final db = await database;
+      final deleted = await db.delete(
+        'custom_lists',
+        where: 'list_name = ? AND name = ?',
+        whereArgs: [listName, name],
+      );
+      print('DatabaseHelper: Removed profile $name from list $listName ($deleted rows affected)');
+    } catch (e) {
+      print('DatabaseHelper: Error removing profile from list $listName: $e');
+    }
+  }
+
+  Future<List<String>> getAllListNames() async {
+    try {
+      final db = await database;
+      final result = await db.query(
+        'custom_lists',
+        distinct: true,
+        columns: ['list_name'],
+      );
+      final listNames = result.map((row) => row['list_name'] as String).toList();
+      
+      if (!listNames.contains('saved')) {  // Always include the saved list
+        listNames.add('saved');
+      }
+
+      if (!listNames.contains('liked')) {  // Always include the saved list
+        listNames.add('liked');
+      }
+
+      if (!listNames.contains('disliked')) {  // Always include the saved list
+        listNames.add('disliked');
+      }
+      
+      print('DatabaseHelper: Retrieved ${listNames.length} list names: $listNames');
+      return listNames;
+    } catch (e) {
+      print('DatabaseHelper: Error retrieving list names: $e');
+      return [];
+    }
+  }
+
+  Future<List<Map<dynamic, dynamic>>> getProfilesInList(String listName) async {
+    try {
+      final db = await database;
+      final result = await db.query(
+        'custom_lists',
+        where: 'list_name = ?',
+        whereArgs: [listName],
+      );
+      if (result.isEmpty) {
+        print('DatabaseHelper: No profiles found in list $listName');
+        return [];
+      }
+      final profiles = result.map((row) {
+        try {
+          return jsonDecode(row['profile_data'] as String) as Map<dynamic, dynamic>;
+        } catch (e) {
+          print('DatabaseHelper: Error decoding profile_data for $listName, name=${row['name']}: $e');
+          return <dynamic, dynamic>{};
+        }
+      }).toList();
+      print('DatabaseHelper: Retrieved ${profiles.length} profiles from list $listName');
+      return profiles;
+    } catch (e) {
+      print('DatabaseHelper: Error retrieving profiles from list $listName: $e');
+      return [];
+    }
+  }
+
+  Future<int> renameList(String oldName, String newName) async {
+    try {
+      final db = await database;
+      final result = await db.update(
+        'custom_lists',
+        {'list_name': newName},
+        where: 'list_name = ?',
+        whereArgs: [oldName],
+      );
+      print('DatabaseHelper: Renamed list from $oldName to $newName ($result rows affected)');
+      return result; // Return number of rows affected
+    } catch (e) {
+      print('DatabaseHelper: Error renaming list $oldName to $newName: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> deleteList(String listName) async {
+    try {
+      if (listName == 'saved') {
+        // Instead of deleting, clear all profiles from saved
+        final db = await database;
+        final deleted = await db.delete(
+          'custom_lists',
+          where: 'list_name = ?',
+          whereArgs: [listName],
+        );
+        print('DatabaseHelper: Cleared all profiles from saved list ($deleted rows affected)');
+        return;
+      }
+      final db = await database;
+      final deleted = await db.delete(
+        'custom_lists',
+        where: 'list_name = ?',
+        whereArgs: [listName],
+      );
+      print('DatabaseHelper: Deleted list $listName ($deleted rows affected)');
+    } catch (e) {
+      print('DatabaseHelper: Error deleting list $listName: $e');
     }
   }
 
@@ -1008,12 +1295,14 @@ class DatabaseHelper {
       // Log all tables
       //await printTable('settings');
       //await printTable('profile_metadata', decodeJson: true);
-      await printTable('other_user_profiles', decodeJson: true);
+      //await printTable('other_user_profiles', decodeJson: true);
       //await printTable('filters', decodeJson: true);
       //await printTable('cached_images');
+      await printTable('firestorage_paths');
+      //await printTable('custom_lists');
 
       // Additional summary
-      final tables = ['settings', 'profile_metadata', 'other_user_profiles', 'filters', 'cached_images'];
+      final tables = ['settings', 'profile_metadata', 'other_user_profiles', 'filters', 'cached_images', 'firestorage_paths', 'custom_lists'];
       final counts = await Future.wait(tables.map((table) async => (await db.query(table)).length));
       print('Summary:');
       for (var i = 0; i < tables.length; i++) {

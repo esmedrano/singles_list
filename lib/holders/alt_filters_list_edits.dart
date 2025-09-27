@@ -1,9 +1,9 @@
-import 'package:flutter/cupertino.dart';
+// V1 custom lists
+
+/* import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:integra_date/databases/sqlite_database.dart' as sqlite;
 import 'dart:convert';
-import 'package:integra_date/pages/swipe_page.dart' as swipe_page;
-import 'package:integra_date/widgets/database_page_widgets/banner_view.dart' as banner_view;
 
 // This turns off the apply filters button while a query is occuring 
 bool runningRings = false;
@@ -103,7 +103,338 @@ class FiltersMenuState extends State<FiltersMenu> {
       });
     }
   }
+  
+  Future<void> _editLists() async {
+    final listNames = _listOptions!.where((list) => list != 'saved') ?? [];
+    if (listNames.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No lists to edit'),
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+      return;
+    }
 
+    // Create a map to store edited names
+    final editedNames = Map<String, TextEditingController>.fromIterable(
+      listNames,
+      key: (name) => name as String,
+      value: (name) => TextEditingController(text: name as String),
+    );
+
+    await showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Edit Lists'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: listNames.map((listName) {
+              return Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: editedNames[listName],
+                      decoration: InputDecoration(
+                        labelText: 'List Name',
+                        errorText: listName == 'favorites' ? 'Cannot rename favorites' : null,
+                      ),
+                      enabled: listName != 'favorites',
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.delete),
+                    onPressed: listName == 'favorites'
+                        ? null
+                        : () async {
+                            try {
+                              await sqlite.DatabaseHelper.instance.deleteList(listName);
+                              await _loadListOptions();
+                              if (mounted) {
+                                setState(() {
+                                  _listsSelected.remove(listName);
+                                });
+                                Navigator.pop(dialogContext);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Deleted list: $listName'),
+                                    duration: const Duration(seconds: 3),
+                                  ),
+                                );
+                              }
+                            } catch (e) {
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Error deleting list: $e'),
+                                    duration: const Duration(seconds: 3),
+                                  ),
+                                );
+                              }
+                            }
+                          },
+                  ),
+                ],
+              );
+            }).toList(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              final newNames = <String, String>{};
+              final errors = <String>[];
+              final currentListNames = await sqlite.DatabaseHelper.instance.getAllListNames();
+
+              // Validate new names
+              for (final entry in editedNames.entries) {
+                final oldName = entry.key;
+                final newName = entry.value.text.trim();
+                print('Validating: $oldName -> $newName');
+                if (oldName == 'favorites' && newName != 'favorites') {
+                  errors.add('Cannot rename favorites');
+                  continue;
+                }
+                if (newName.isEmpty) {
+                  errors.add('Name for $oldName is empty');
+                  continue;
+                }
+                if (newName == 'favorites') {
+                  errors.add('Cannot rename to favorites');
+                  continue;
+                }
+                if (currentListNames.contains(newName) && newName != oldName) {
+                  errors.add('Name $newName already exists');
+                  continue;
+                }
+                if (newName != oldName) {
+                  newNames[oldName] = newName;
+                }
+              }
+
+              // Apply renames
+              for (final entry in newNames.entries) {
+                final oldName = entry.key;
+                final newName = entry.value;
+                print('Renaming: $oldName -> $newName');
+                try {
+                  final rowsAffected = await sqlite.DatabaseHelper.instance.renameList(oldName, newName);
+                  print('Rows affected for $oldName -> $newName: $rowsAffected');
+                  if (mounted && _listsSelected.contains(oldName)) {
+                    setState(() {
+                      _listsSelected
+                        ..remove(oldName)
+                        ..add(newName);
+                    });
+                  }
+                } catch (e) {
+                  print('Error renaming $oldName to $newName: $e');
+                  errors.add('Failed to rename $oldName to $newName: $e');
+                }
+              }
+
+              // Refresh list options
+              await _loadListOptions();
+              print('Updated _listOptions: $_listOptions');
+
+              // Show feedback
+              if (mounted) {
+                if (errors.isNotEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Errors: ${errors.join(', ')}'),
+                      duration: const Duration(seconds: 5),
+                    ),
+                  );
+                } else if (newNames.isNotEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Updated ${newNames.length} list(s)'),
+                      duration: const Duration(seconds: 3),
+                    ),
+                  );
+                }
+              }
+
+              // Always close the dialog
+              Navigator.pop(dialogContext);
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    ).whenComplete(() {
+      // Dispose controllers
+      editedNames.values.forEach((controller) => controller.dispose());
+    });
+  }
+  /* Future<void> _editLists() async {
+    final listNames = _listOptions!.where((list) => list != 'saved') ?? [];
+    if (listNames.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No lists to edit'),
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+      return;
+    }
+
+    // Create a map to store edited names
+    final editedNames = Map<String, TextEditingController>.fromIterable(
+      listNames,
+      key: (name) => name as String,
+      value: (name) => TextEditingController(text: name as String),
+    );
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Edit Lists'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: listNames.map((listName) {
+              return Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: editedNames[listName],
+                      decoration: InputDecoration(
+                        labelText: 'List Name',
+                        errorText: listName == 'saved' ? 'Cannot rename saved' : null,
+                      ),
+                      enabled: listName != 'saved', // Disable for saved
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.delete),
+                    onPressed: listName == 'saved'
+                        ? null // Prevent deleting saved
+                        : () async {
+                            try {
+                              await sqlite.DatabaseHelper.instance.deleteList(listName);
+                              await _loadListOptions();
+                              if (mounted) {
+                                setState(() {
+                                  _listsSelected.remove(listName);
+                                });
+                                Navigator.pop(context);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Deleted list: $listName'),
+                                    duration: const Duration(seconds: 3),
+                                  ),
+                                );
+                              }
+                            } catch (e) {
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Error deleting list: $e'),
+                                    duration: const Duration(seconds: 3),
+                                  ),
+                                );
+                              }
+                            }
+                          },
+                  ),
+                ],
+              );
+            }).toList(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              bool hasErrors = false;
+              final newNames = <String, String>{}; // oldName -> newName
+              for (final entry in editedNames.entries) {
+                final oldName = entry.key;
+                final newName = entry.value.text.trim();
+                if (oldName == 'saved' && newName != 'saved') {
+                  hasErrors = true;
+                  continue; // Skip saved
+                }
+                if (newName.isEmpty || newName == 'saved' || listNames.contains(newName) && newName != oldName) {
+                  hasErrors = true;
+                  continue; // Skip invalid names
+                }
+                if (newName != oldName) {
+                  newNames[oldName] = newName;
+                }
+              }
+
+              if (hasErrors) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Invalid names: must be unique, non-empty, and not "saved"'),
+                      duration: Duration(seconds: 3),
+                    ),
+                  );
+                }
+                return;
+              }
+
+              // Apply renames
+              for (final entry in newNames.entries) {
+                try {
+                  await sqlite.DatabaseHelper.instance.renameList(entry.key, entry.value);
+                  if (mounted && _listsSelected.contains(entry.key)) {
+                    setState(() {
+                      _listsSelected
+                        ..remove(entry.key)
+                        ..add(entry.value);
+                    });
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Error renaming $entry.key: $e'),
+                        duration: const Duration(seconds: 3),
+                      ),
+                    );
+                  }
+                  return;
+                }
+              }
+
+              await _loadListOptions();
+              if (mounted) {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Updated ${newNames.length} list(s)'),
+                    duration: const Duration(seconds: 3),
+                  ),
+                );
+              }
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    ).whenComplete(() {
+      // Dispose controllers
+      editedNames.values.forEach((controller) => controller.dispose());
+    });
+  }
+ */
   Future<void> loadFilterValues() async {
     try {
       final db = sqlite.DatabaseHelper.instance;
@@ -298,16 +629,6 @@ class FiltersMenuState extends State<FiltersMenu> {
 
   void displayFilters() async{
     _listOptions = await sqlite.DatabaseHelper.instance.getAllListNames();
-    const List<String> _fixedOrder = ['saved', 'hide saved', 'liked', 'hide likes', 'disliked', 'hide dislikes'];
-    if (_listOptions!.contains('saved')) {
-      _listOptions!.add('hide saved');
-    }
-    if (_listOptions!.contains('liked')) {
-          _listOptions!.add('hide likes');
-        }
-    if (_listOptions!.contains('disliked')) {
-      _listOptions!.add('hide dislikes');
-    }
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -387,8 +708,6 @@ class FiltersMenuState extends State<FiltersMenu> {
                                     _heightInitialSync = false;
                                   });
                                   saveAndApplyFilterValues();
-                                  swipe_page.resetIndexAfterFiltering();
-                                  banner_view.loadListsAfterFiltering();
                               },
                             style: ButtonStyle(
                               backgroundColor: WidgetStatePropertyAll(Color(0x50FFFFFF)),
@@ -406,8 +725,6 @@ class FiltersMenuState extends State<FiltersMenu> {
                               () {
                                   saveAndApplyFilterValues();
                                   Navigator.pop(context);
-                                  swipe_page.resetIndexAfterFiltering();
-                                  banner_view.loadListsAfterFiltering();
                               },
                             style: ButtonStyle(
                               backgroundColor: WidgetStatePropertyAll(Color(0x50FFFFFF)),
@@ -896,134 +1213,55 @@ class FiltersMenuState extends State<FiltersMenu> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  SizedBox(
-                                    width: double.infinity,
-                                    child: TextButton(
-                                      onPressed: () {
-                                        setState(() {
-                                          _showLists = !_showLists;
-                                        });
-                                      },
-                                      child: Text('lists', style: TextStyle(color: Color(0xFF101010))),
-                                    ),
-                                  ),
-                                  
-                                  if (_showLists)
-                                    Column(
-                                    crossAxisAlignment: CrossAxisAlignment.center,
+                                  Stack(
                                     children: [
-                                      // Line 1: saved
-                                      if (_listOptions!.contains('saved'))
-                                        Row(
-                                          mainAxisAlignment: MainAxisAlignment.center,
-                                          mainAxisSize: MainAxisSize.max,
-                                          children: _fixedOrder
-                                              .where((option) => option == 'saved' || option == 'hide saved')
-                                              .map((option) {
-                                            return Padding(
-                                              padding: const EdgeInsets.only(right: 8), // Spacing between chips
-                                              child: ChoiceChip(
-                                                label: Text(option),
-                                                shape: StadiumBorder(),
-                                                selectedColor: Colors.indigo[200],
-                                                backgroundColor: Color.fromARGB(255, 151, 159, 209),
-                                                selected: _listsSelected.contains(option),
-                                                onSelected: (selected) {
-                                                  setState(() {
-                                                    if (selected) {
-                                                      if (!_listsSelected.contains(option)) {
-                                                        _listsSelected.add(option);
-                                                      }
-                                                      if (option == 'saved') {
-                                                        _listsSelected.remove('hide saved');
-                                                      } else if (option == 'hide saved') {
-                                                        _listsSelected.remove('saved');
-                                                      }
-                                                    } else {
-                                                      _listsSelected.remove(option);
-                                                    }
-                                                    print(_listsSelected);
-                                                  });
-                                                },
-                                              ),
-                                            );
-                                          }).toList(),
+                                      SizedBox(
+                                        width: double.infinity,
+                                        child: TextButton(
+                                          onPressed: () {
+                                            setState(() {
+                                              _showLists = !_showLists;
+                                            });
+                                          },
+                                          child: Text('lists', style: TextStyle(color: Color(0xFF101010))),
                                         ),
-                                      // Line 2: liked, hide likes
-                                      if (_listOptions!.contains('liked') || _listOptions!.contains('hide likes'))
-                                        Row(
-                                          mainAxisAlignment: MainAxisAlignment.center,
-                                          mainAxisSize: MainAxisSize.max,
-                                          children: _fixedOrder
-                                              .where((option) => option == 'liked' || option == 'hide likes')
-                                              .map((option) {
-                                            return Padding(
-                                              padding: const EdgeInsets.only(right: 8), // Spacing between chips
-                                              child: ChoiceChip(
-                                                label: Text(option),
-                                                shape: StadiumBorder(),
-                                                selectedColor: Colors.indigo[200],
-                                                backgroundColor: Color.fromARGB(255, 151, 159, 209),
-                                                selected: _listsSelected.contains(option),
-                                                onSelected: (selected) {
-                                                  setState(() {
-                                                    if (selected) {
-                                                      if (!_listsSelected.contains(option)) {
-                                                        _listsSelected.add(option);
-                                                      }
-                                                      if (option == 'liked') {
-                                                        _listsSelected.remove('hide likes');
-                                                      } else if (option == 'hide likes') {
-                                                        _listsSelected.remove('liked');
-                                                      }
-                                                    } else {
-                                                      _listsSelected.remove(option);
-                                                    }
-                                                    print(_listsSelected);
-                                                  });
-                                                },
-                                              ),
-                                            );
-                                          }).toList(),
+                                      ),
+
+                                      if (_showLists)
+                                      Positioned(
+                                        top: 1,
+                                        right: 1,
+                                        child: TextButton(
+                                          onPressed: () {
+                                            _editLists();
+                                          },
+                                          child: Text('edit'),
                                         ),
-                                      // Line 3: disliked, hide dislikes
-                                      if (_listOptions!.contains('disliked') || _listOptions!.contains('hide dislikes'))
-                                        Row(
-                                          mainAxisAlignment: MainAxisAlignment.center,
-                                          mainAxisSize: MainAxisSize.max,
-                                          children: _fixedOrder
-                                              .where((option) => option == 'disliked' || option == 'hide dislikes')
-                                              .map((option) {
-                                            return Padding(
-                                              padding: const EdgeInsets.only(right: 8), // Spacing between chips
-                                              child: ChoiceChip(
-                                                label: Text(option),
-                                                shape: StadiumBorder(),
-                                                selectedColor: Colors.indigo[200],
-                                                backgroundColor: Color.fromARGB(255, 151, 159, 209),
-                                                selected: _listsSelected.contains(option),
-                                                onSelected: (selected) {
-                                                  setState(() {
-                                                    if (selected) {
-                                                      if (!_listsSelected.contains(option)) {
-                                                        _listsSelected.add(option);
-                                                      }
-                                                      if (option == 'disliked') {
-                                                        _listsSelected.remove('hide dislikes');
-                                                      } else if (option == 'hide dislikes') {
-                                                        _listsSelected.remove('disliked');
-                                                      }
-                                                    } else {
-                                                      _listsSelected.remove(option);
-                                                    }
-                                                  });
-                                                },
-                                              ),
-                                            );
-                                          }).toList(),
-                                        ),
+                                      )
                                     ],
-                                                                      ),
+                                  ),
+                                  if (_showLists)
+                                    Wrap(
+                                      spacing: 8,
+                                      children: _listOptions!.map((option) {
+                                        return ChoiceChip(
+                                          label: Text(option),
+                                          shape: StadiumBorder(),
+                                          selectedColor: Colors.indigo[200],
+                                          backgroundColor: Color.fromARGB(255, 151, 159, 209),
+                                          selected: _listsSelected.contains(option),
+                                          onSelected: (selected) {
+                                            setState(() {
+                                              if (selected && !_listsSelected.contains(option)) {
+                                                _listsSelected.add(option);
+                                              } else if (!selected && _listsSelected.contains(option)) {
+                                                _listsSelected.remove(option);
+                                              }
+                                            });
+                                          },
+                                        );
+                                      }).toList()
+                                    ),
                                 ],
                               ),
                             ),
@@ -1074,4 +1312,191 @@ class FiltersMenuState extends State<FiltersMenu> {
       ),
     );
   }
+} */
+
+// You'll need this separate file scripts/save_profile
+
+/* import 'package:flutter/material.dart';
+import 'package:integra_date/databases/sqlite_database.dart' as sqlite;
+
+class FolderSelectionDialog extends StatefulWidget {
+  final Map<dynamic, dynamic> profile;
+  final VoidCallback? onSaveComplete; // Optional callback to refresh UI
+
+  const FolderSelectionDialog({
+    super.key,
+    required this.profile,
+    this.onSaveComplete,
+  });
+
+  @override
+  _FolderSelectionDialogState createState() => _FolderSelectionDialogState();
 }
+
+class _FolderSelectionDialogState extends State<FolderSelectionDialog> {
+  final _selectedLists = <String>{};
+  List<String> _availableLists = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadListNames();
+  }
+
+  Future<void> _loadListNames() async {
+    final listNames = await sqlite.DatabaseHelper.instance.getAllListNames();
+    setState(() {
+      _availableLists = listNames.where((name) => name != 'saved').toList();    
+    });
+  }
+
+  Future<void> _createNewFolder() async {
+    final TextEditingController controller = TextEditingController();
+    final newListName = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('New Folder'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(hintText: 'Enter folder name'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              final name = controller.text.trim();
+              if (name.isNotEmpty) {
+                Navigator.pop(context, name);
+              }
+            },
+            child: const Text('Create'),
+          ),
+        ],
+      ),
+    );
+
+    if (newListName != null && newListName.isNotEmpty && mounted) {
+      // Add the new list name to available lists
+      setState(() {
+        if (!_availableLists.contains(newListName)) {
+          _availableLists.add(newListName);
+          _selectedLists.add(newListName); // Auto-select the new folder
+        }
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Save Profile to Folder',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              
+              IconButton(
+                onPressed: _createNewFolder,
+                icon: const Icon(Icons.add),
+                tooltip: 'Create new folder',
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          if (_availableLists.isEmpty)
+            const Text(
+              'No folders available',
+              style: TextStyle(color: Colors.grey),
+            )
+          else
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: _availableLists.map((listName) {
+                return ChoiceChip(
+                  label: Text(listName),
+                  shape: const StadiumBorder(),
+                  selectedColor: Colors.indigo[200],
+                  backgroundColor: const Color.fromARGB(255, 151, 159, 209),
+                  selected: _selectedLists.contains(listName),
+                  onSelected: (selected) {
+                    setState(() {
+                      if (selected) {
+                        _selectedLists.add(listName);
+                      } else {
+                        _selectedLists.remove(listName);
+                      }
+                    });
+                  },
+                );
+              }).toList(),
+            ),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: _availableLists.isEmpty
+                    ? null
+                    : () async {
+                        // Add profile to selected lists
+                        for (final listName in _selectedLists) {
+                          await sqlite.DatabaseHelper.instance.addProfileToList(
+                            listName,
+                            widget.profile['name'] as String,
+                            widget.profile,
+                          );
+                        }
+                        if (mounted) {
+                          Navigator.pop(context); // Close dialog
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Profile saved to ${_selectedLists.length} folder(s)'),
+                              duration: const Duration(seconds: 3),
+                            ),
+                          );
+                          widget.onSaveComplete?.call(); // Call refresh callback
+                        }
+                      },
+                child: const Text('Save'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// Utility function to show the dialog
+Future<void> showFolderSelectionDialog({
+  required BuildContext context,
+  required Map<dynamic, dynamic> profile,
+  VoidCallback? onSaveComplete,
+}) async {
+  await showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+    ),
+    builder: (context) => FolderSelectionDialog(
+      profile: profile,
+      onSaveComplete: onSaveComplete,
+    ),
+  );
+} */

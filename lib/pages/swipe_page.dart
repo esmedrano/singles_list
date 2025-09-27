@@ -3,6 +3,7 @@ import 'package:integra_date/widgets/filters_menu.dart' as filters_menu;
 import 'package:integra_date/widgets/database_page_widgets/banner_view.dart' show _getImagePath;
 import 'dart:io';
 import 'package:integra_date/databases/sqlite_database.dart' as sqlite;
+import 'package:integra_date/scripts/save_profile_to_list.dart' as save_profile_to_list; 
 
 bool hasDisplayedSearchedProfile = true; // Tracks if searchedProfile was shown
 void toggleDisplaySearchFalse() {
@@ -13,6 +14,11 @@ void toggleDisplaySearchFalse() {
 void toggleDisplaySearchTrue() {
   print('toggled true');
   hasDisplayedSearchedProfile = true;
+}
+
+bool resetIndexAfterFilter = false;
+void resetIndexAfterFiltering() {
+  resetIndexAfterFilter = true;
 }
 
 class SwipePage extends StatefulWidget {
@@ -37,6 +43,16 @@ class SwipePage extends StatefulWidget {
 
 class SwipePageState extends State<SwipePage> {
   int profileIndex = 0;
+  bool profileSaved = false;
+  bool profileLiked = false;
+  bool profileDisliked = false;
+  List<Map<dynamic, dynamic>> profilesInList = []; // State variable for profiles
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProfiles();
+  }
 
   @override
   void didUpdateWidget(SwipePage oldWidget) {
@@ -46,8 +62,66 @@ class SwipePageState extends State<SwipePage> {
       setState(() {
         //hasDisplayedSearchedProfile = true;
         profileIndex = widget.databaseIndex ?? 0;
+        print('New index: $profileIndex');
       });
     } 
+    _loadProfiles(); // Reload profiles when index changes
+  }
+
+  Future<void> _loadProfiles() async {
+    print('Loaded lists from swipe page');
+    final currentProfile = await _getCurrentProfile();
+    if (currentProfile != null) {
+      profileSaved = await save_profile_to_list.ProfileListManager.isProfileSaved('saved', currentProfile['name']);
+      profileLiked = await save_profile_to_list.ProfileListManager.isProfileSaved('liked', currentProfile['name']);
+      profileDisliked = await save_profile_to_list.ProfileListManager.isProfileSaved('disliked', currentProfile['name']);
+      final savedProfiles = await save_profile_to_list.ProfileListManager.loadProfilesInList('saved');
+      setState(() {
+        profilesInList = savedProfiles;
+      });
+    }
+  }
+
+  Future<Map<dynamic, dynamic>?> _getCurrentProfile() async {
+    final holderSnapshot = await widget.profiles;
+    if (widget.searchedProfile != null && !hasDisplayedSearchedProfile) {
+      return widget.searchedProfile!['profile_data'];
+    }
+
+    if (resetIndexAfterFilter) {  // The index stays at the last profile index after filtering (I am not sure why), but it should be reset to 0
+      profileIndex = 0;
+      resetIndexAfterFilter = false;
+    }
+
+    print('holderSnapshot.length ${holderSnapshot.length}');
+    print('profileIndex $profileIndex');
+    
+    return holderSnapshot.isNotEmpty ? holderSnapshot[profileIndex] : null;
+  }
+
+  Future<void> _toggleProfile(String listName, bool isCurrentlyInList) async {
+    final currentProfile = await _getCurrentProfile();
+    if (currentProfile == null) return;
+
+    await save_profile_to_list.ProfileListManager.toggleProfileInList(
+      listName: listName,
+      profileName: currentProfile['name'] as String,
+      profileData: currentProfile,
+      isCurrentlySaved: isCurrentlyInList,
+      context: context,
+      setStateCallback: (Map<String, dynamic> state) {
+        setState(() {
+          if (listName == 'saved') {
+            profilesInList = state['profilesInList'] as List<Map<dynamic, dynamic>>;
+            profileSaved = state['profileSaved'] as bool;
+          } else if (listName == 'liked') {
+            profileLiked = state['profileSaved'] as bool;
+          } else if (listName == 'disliked') {
+            profileDisliked = state['profileSaved'] as bool;
+          }
+        });
+      },
+    );
   }
 
   @override
@@ -58,20 +132,24 @@ class SwipePageState extends State<SwipePage> {
     List<Map<dynamic, dynamic>> profiles = [];
 
     void nextProfile() {  
+      print('next profile');
       setState(() {
         if (widget.searchedProfile != null && !hasDisplayedSearchedProfile) {
-          // Mark searchedProfile as displayed and reset index for next profiles
+          print('Mark searchedProfile as displayed and reset index for next profiles');
           hasDisplayedSearchedProfile = true;
           
           profileIndex = 0;
+          print(profileIndex);
         } else {
           // Move to next profile in the list
           profileIndex += 1;
           if (profileIndex >= profiles.length) {
             profileIndex = 0;
           }
+          print(profileIndex);
         }
       });
+      _loadProfiles(); // Reload profile states for the new profile
     }
 
     return FutureBuilder<List<Map<dynamic, dynamic>>>(
@@ -148,7 +226,10 @@ class SwipePageState extends State<SwipePage> {
                     child: SizedBox(
                       width: 90,
                       child: IconButton(
-                        onPressed: nextProfile,
+                        onPressed: () async{
+                          await _toggleProfile('disliked', profileDisliked);
+                          nextProfile();
+                        },
                         icon: Image.asset('assets/icons/x.png'),
                       ),
                     ),
@@ -159,7 +240,10 @@ class SwipePageState extends State<SwipePage> {
                     child: SizedBox(
                       width: 100,
                       child: IconButton(
-                        onPressed: nextProfile,
+                        onPressed: () async{
+                          await _toggleProfile('liked', profileLiked);
+                          nextProfile();
+                        },
                         icon: Image.asset('assets/icons/heart.png'),
                       ),
                     ),
@@ -282,24 +366,30 @@ class SwipePageState extends State<SwipePage> {
                             ),
                           ),
                         ),
-                        Positioned(
+                        Positioned(  // Dislike button
                           bottom: 20,
                           left: 20,
                           child: SizedBox(
                             width: 90,
                             child: IconButton(
-                              onPressed: nextProfile,
+                              onPressed: () async{
+                                await _toggleProfile('disliked', profileDisliked);
+                                nextProfile();  // Increment profiles list index
+                              },
                               icon: Image.asset('assets/icons/x.png'),
                             ),
                           ),
                         ),
-                        Positioned(
+                        Positioned(  // Like button
                           bottom: 20,
                           right: 20,
                           child: SizedBox(
                             width: 100,
                             child: IconButton(
-                              onPressed: nextProfile,
+                              onPressed: () async{
+                                await _toggleProfile('liked', profileLiked);
+                                nextProfile();  // Increment profiles list index
+                              },
                               icon: Image.asset('assets/icons/heart.png'),
                             ),
                           ),
