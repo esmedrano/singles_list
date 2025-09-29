@@ -204,7 +204,7 @@ void showBannerDialog({
 
   final deepLinkHandler = create_profile_url.DeepLinkHandler();
   final profilePictureHeight  = (MediaQuery.of(context).size.width - 10); 
-  final bannerHeight = profilePictureHeight + 214;
+  final double bannerHeight = 223;
   final double expandedPicturesHeight = 407;
 
   //final profilePictures = _getImagePath(profile['images'], profile['name']);
@@ -236,24 +236,25 @@ void showBannerDialog({
                 children: [
                   Container(
                     key: bannerKey,
-                    width: MediaQuery.of(context).size.width * 0.9,
+                    width: MediaQuery.of(context).size.width,
                     child: BannerContent(
                       bannerHeight: bannerHeight,
                       profilePictureHeight: profilePictureHeight,
                       expandedPicturesHeight: expandedPicturesHeight,
                       profile: profile,
                       //profilePictures: profilePictures,
-                      picsAreExpanded: picsAreExpanded,
+                      //picsAreExpanded: picsAreExpanded,
                       introIsExpanded: false,
                       onProfileTap: () {},  // These don't need to do anything because this is basically just a picture of the profile 
                       onIntroToggle: () {},  // These don't need to do anything because this is basically just a picture of the profile
-                      onPicsToggle: () {},  // These don't need to do anything because this is basically just a picture of the profile
+                      //onPicsToggle: () {},  // These don't need to do anything because this is basically just a picture of the profile
                       onSharePress: () {},  // These don't need to do anything because this is basically just a picture of the profile
                       onSwipePress: () {},  // These don't need to do anything because this is basically just a picture of the profile
                       profileSaved: false,
                       profileLiked: false,
                       profileDisliked: false,
-                      toggleProfile: (String, bool) {return Future(() {});}, 
+                      //toggleProfile: (String, bool) {return Future(() {});}, 
+                      switchPage: (int, int2, int3) {},
                     ),
                   ),
                   //SizedBox(height: MediaQuery.of(context).size.height * 0.25),

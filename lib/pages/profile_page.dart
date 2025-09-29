@@ -46,6 +46,9 @@ class _ProfilePageState extends State<ProfilePage> {
   final TextEditingController _ageController = TextEditingController();
   String _originalAge = '';
   final FocusNode _ageFocusNode = FocusNode();
+  final TextEditingController _biologyController = TextEditingController();
+  String _originalBiology = '';
+  final FocusNode _biologyFocusNode = FocusNode();
 
   List<String> tagsSelected = [];
   List<String> _originalTagsSelected = [];
@@ -136,7 +139,10 @@ class _ProfilePageState extends State<ProfilePage> {
     _nameFocusNode.dispose();
     _nameFocusNode.removeListener(_handleNameFocusChange);
     _ageController.dispose();
+    _biologyController.dispose();
     _ageFocusNode.dispose();
+
+    _biologyFocusNode.dispose();
     super.dispose();
   }
 
@@ -165,6 +171,7 @@ class _ProfilePageState extends State<ProfilePage> {
       'intro': _introController.text,
       'name': capitalizedName,
       'age': _ageController.text,
+      'biology': _biologyController.text,
       'tags': tagsSelected,
       'children': childrenSelection,
       'relationship_intent': relationshipIntentSelected,
@@ -195,6 +202,7 @@ class _ProfilePageState extends State<ProfilePage> {
         _originalIntro = _introController.text;
         _originalName = _nameController.text;
         _originalAge = _ageController.text;
+        _originalBiology = _biologyController.text;
         _originalTagsSelected = List<String>.from(tagsSelected);
         _originalChildrenSelection = childrenSelection;
         _originalRelationshipIntentSelected = List<String>.from(relationshipIntentSelected);
@@ -238,9 +246,11 @@ class _ProfilePageState extends State<ProfilePage> {
         _introController.text = metadata['intro'] ?? '';
         _nameController.text = metadata['name'] ?? '';
         _ageController.text = metadata['age'] ?? '';
+        _biologyController.text = metadata['biology'] ?? '';
         _originalIntro = _introController.text;
         _originalName = _nameController.text;
         _originalAge = _ageController.text;
+        _originalBiology = _biologyController.text;
         tagsSelected = List<String>.from(metadata['tags'] ?? []);
         _originalTagsSelected = List<String>.from(tagsSelected);
         childrenSelection = metadata['children'] ?? '';
@@ -445,6 +455,7 @@ class _ProfilePageState extends State<ProfilePage> {
         _introController.text != _originalIntro ||
         _nameController.text != _originalName ||
         _ageController.text != _originalAge ||
+        _biologyController.text != _originalBiology ||
         tagsSelected.toSet() != _originalTagsSelected.toSet() ||
         childrenSelection != _originalChildrenSelection ||
         relationshipIntentSelected.toSet() != _originalRelationshipIntentSelected.toSet() ||
@@ -787,7 +798,7 @@ class _ProfilePageState extends State<ProfilePage> {
                               showNameAge = !showNameAge;
                             });
                           },
-                          child: const Text('name and age'),
+                          child: const Text('name, age, and biology'),
                         ),
                       ),
                       
@@ -799,7 +810,7 @@ class _ProfilePageState extends State<ProfilePage> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               SizedBox(
-                                width: 50,
+                                width: 65,
                                 child: Text('Name: ')
                               ),
                               
@@ -817,9 +828,9 @@ class _ProfilePageState extends State<ProfilePage> {
                                     // Capitalization is handled by _handleNameFocusChange
                                   },
                         
-                                  // onTapOutside: (_) {
-                                  //   _nameFocusNode.unfocus();
-                                  // },
+                                  onTapOutside: (_) {
+                                    _nameFocusNode.unfocus();
+                                  },
 
                                   minLines: 1,
                                   decoration: InputDecoration(
@@ -851,7 +862,7 @@ class _ProfilePageState extends State<ProfilePage> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               SizedBox(
-                                width: 50,
+                                width: 65,
                                 child: Text('Age: ')
                               ),
                               SizedBox(width: 10),
@@ -896,6 +907,58 @@ class _ProfilePageState extends State<ProfilePage> {
                                   onTap: () => _ageFocusNode.requestFocus(),
                                 ),
                               ),
+                              SizedBox(width: 10),
+                            ],
+                          ),
+
+                          SizedBox(height: 10),
+
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              SizedBox(
+                                width: 65,
+                                child: Text('Biology:')
+                              ),
+                              
+                              SizedBox(width: 10),
+                              
+                              Expanded(
+                                child: TextField(
+                                  controller: _biologyController,
+                                  focusNode: _biologyFocusNode,
+                        
+                                  textInputAction: TextInputAction.done, // Show "Done" on keyboard
+                                  onSubmitted: (_) {
+                                    // Handle keyboard "Done" action
+                                    _biologyFocusNode.unfocus();
+                                    // Capitalization is handled by _handleNameFocusChange
+                                  },
+                        
+                                  // onTapOutside: (_) {
+                                  //   _nameFocusNode.unfocus();
+                                  // },
+
+                                  minLines: 1,
+                                  decoration: InputDecoration(
+                                    hintStyle: const TextStyle(fontSize: 14, color: Color.fromARGB(255, 70, 78, 66)),
+                                    fillColor: const Color(0x50FFFFFF),
+                                    filled: true,
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                      borderSide: BorderSide.none,
+                                    ),
+                                  ),
+                                  onChanged: (value) {
+                                    setState(() {
+                                      _hasUnsavedChanges = _checkForChanges();
+                                    });
+                                  },
+                                  onTap: () => _biologyFocusNode.requestFocus(),
+                                ),
+                              ),
+                              
                               SizedBox(width: 10),
                             ],
                           ),

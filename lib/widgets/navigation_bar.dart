@@ -88,6 +88,12 @@ class _NavigationBarState extends State<PageSelectBar> {
     sqlite.DatabaseHelper.instance.close();
   }
 
+  Future<void> refreshData() async{
+    setState(() {
+
+    });
+  }
+
   Future<void> setQueryDistance() async {
     final distance = await sqlite.DatabaseHelper.instance.getFilterValue('distance');
     final lastRadius = radius;
@@ -289,10 +295,12 @@ class _NavigationBarState extends State<PageSelectBar> {
     int totalCachedProfiles = await sqlite.DatabaseHelper.instance.getAllOtherUserProfilesCount();  // This is needed to check if total cached profiles is greater than the page size, which if true will allow the pagination button to work
 
     await getTotalPageCount();
-    setState(() {  // Rebuild the widget tree- including all views -with fresh profiles, but only if page one is not full. Otherwise the additional profiles can be found in the cache for later
-      hasNextPage = totalCachedProfiles >= pageSize && totalCachedProfiles - currentPage * pageSize != 0;  // Allow pagination button to work, but only if there are more profiles
-      profileData = completer.future;  // This should be from the cache, but i need to fix pagination first. 
-    });
+    if (pageCount > 105) {
+      setState(() {  // Rebuild the widget tree- including all views -with fresh profiles, but only if page one is not full. Otherwise the additional profiles can be found in the cache for later
+        hasNextPage = totalCachedProfiles >= pageSize && totalCachedProfiles - currentPage * pageSize != 0;  // Allow pagination button to work, but only if there are more profiles
+        profileData = completer.future;  // This should be from the cache, but i need to fix pagination first. 
+      });
+    }
   }
 
   Future<void> addNewFilteredProfiles([bool? onlyDistanceChanged]) async{  // This function runs after saving the filters in the filter menu. It updates the profile data list with the filtered profiles, that are then passed to aoll pages below.    
@@ -385,30 +393,32 @@ class _NavigationBarState extends State<PageSelectBar> {
   }
 
   void switchPage(int pageIndex, [int? databaseIndex, Map<dynamic, dynamic>? profileFromSearch]) {
-    setState(() {
-      currentPageIndex = pageIndex;
-      selectedDatabaseIndex = databaseIndex;
-      if (pageIndex == 0) {  // List view page
-        checkAndSetLogInState();
-      }
-      if (pageIndex == 1 && profileFromSearch != null) {
-        print('switchPage() setting searchedProfile: $profileFromSearch');
-        searchedProfile = profileFromSearch;
-      }
-      if (pageIndex >= 0 && pageIndex <= 3) {  // Nav bar pages
-        navBarIndex = pageIndex;
-      }
-      if (pageIndex == 5) {  // Log in page
-        loggedIn = false;
-      }
+    if (mounted) {
+      setState(() {
+        currentPageIndex = pageIndex;
+        selectedDatabaseIndex = databaseIndex;
+        if (pageIndex == 0) {  // List view page
+          checkAndSetLogInState();
+        }
+        if (pageIndex == 1 && profileFromSearch != null) {
+          print('switchPage() setting searchedProfile: $profileFromSearch');
+          searchedProfile = profileFromSearch;
+        }
+        if (pageIndex >= 0 && pageIndex <= 3) {  // Nav bar pages
+          navBarIndex = pageIndex;
+        }
+        if (pageIndex == 5) {  // Log in page
+          loggedIn = false;
+        }
 
-      // Debugging
-      if (pageIndex == 1) {
-        print('\n\n');
-        print('Swipe page accessed now!');
-        print('\n\n');
-      } 
-    });
+        // Debugging
+        if (pageIndex == 1) {
+          print('\n\n');
+          print('Swipe page accessed now!');
+          print('\n\n');
+        } 
+      });
+    }
   }
 
   void loadNewUserLocationBool() {

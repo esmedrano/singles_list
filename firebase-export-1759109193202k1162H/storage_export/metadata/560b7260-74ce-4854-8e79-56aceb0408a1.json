@@ -1,0 +1,18 @@
+{
+  "name": "profile_images/3456789074/oposites_0.jpg",
+  "bucket": "integridate.firebasestorage.app",
+  "metageneration": 2,
+  "generation": 1759097576211,
+  "contentType": "image/jpeg",
+  "storageClass": "STANDARD",
+  "cacheControl": "public, max-age=31536000",
+  "downloadTokens": [
+    "b5a4f35c-91ba-4ebb-8a66-5861a5a20318"
+  ],
+  "etag": "T8lrvyJdWrmBTkPWhZCE/uHsKDU",
+  "timeCreated": "2025-09-28T22:12:56.211Z",
+  "updated": "2025-09-28T22:18:14.928Z",
+  "size": 54842,
+  "md5Hash": "5LmfKw+SfNSMdCIAmcp5EQ==",
+  "crc32c": "597034158"
+}

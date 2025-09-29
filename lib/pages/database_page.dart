@@ -75,12 +75,12 @@ class _DatabasePageState extends State<DatabasePage> {
 
     if (_scrollController.hasClients) {
       if (isBannerView) {
-        firstVisibleIndex = (_scrollController.offset / banner_view.BannerView.bannerHeight).floor();
+        firstVisibleIndex = (_scrollController.offset / banner_view.BannerView.onlyBannerHeight).floor();
         listViewOffset = _scrollController.offset;
         gridViewOffset = (firstVisibleIndex / 3 * gridItemHeight).ceil().toDouble();
       } else {
         firstVisibleIndex = (_scrollController.offset / gridItemHeight).floor() * 3;
-        listViewOffset = firstVisibleIndex * banner_view.BannerView.bannerHeight;
+        listViewOffset = firstVisibleIndex * banner_view.BannerView.onlyBannerHeight;
         gridViewOffset = ((firstVisibleIndex / 3) * gridItemHeight).ceil().toDouble();
       }
     }
@@ -132,11 +132,11 @@ class _DatabasePageState extends State<DatabasePage> {
           switchPage: widget.switchPage,
         ),
         
-        TextButton(onPressed: () async{
-            sqlite.DatabaseHelper.instance.logDatabaseContents();
-          }, 
-          child: Text('log sqlite data')
-        ),
+        // TextButton(onPressed: () async{
+        //     sqlite.DatabaseHelper.instance.logDatabaseContents();
+        //   }, 
+        //   child: Text('log sqlite data')
+        // ),
 
         // TextButton(onPressed: () async{
         //     logFirestoreContents();

@@ -71,7 +71,7 @@ class DatabaseHelper {
       CREATE TABLE firestorage_paths (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         profile_id TEXT,
-        file_path TEXT,
+        file_path TEXT
       )
     ''');
     await db.execute('''
@@ -687,6 +687,31 @@ class DatabaseHelper {
     }
   }
 
+  Future<Map<dynamic, dynamic>?> getUserProfileByHashedId(String hashedId) async {
+    try {
+      final db = await database;
+      final result = await db.query(
+        'other_user_profiles',
+        where: 'profile_data LIKE ?',
+        whereArgs: ['%$hashedId%'],
+      );
+      
+      if (result.isEmpty) {
+        print('DatabaseHelper: No profile found for hashedId: $hashedId');
+        return null;
+      }
+      
+      // Since we're looking for a single profile, take the first result
+      final profileData = result.first['profile_data'] as String;
+      final profile = jsonDecode(profileData) as Map<dynamic, dynamic>;
+      
+      print('DatabaseHelper: Fetched profile for hashedId: $hashedId');
+      return profile;
+    } catch (e) {
+      print('DatabaseHelper: Error reading user profile: $e');
+      return null;
+    }
+  }
 
 
   ////////// CACHED USERS TABLE //////////
@@ -1063,16 +1088,16 @@ class DatabaseHelper {
       final db = await database;
       final result = await db.query(
         'firestorage_paths',
-        where: 'profile_id = ? AND image_url = ?',
+        where: 'profile_id = ?',
         whereArgs: [profileId],
       );
-
+      //print('getting result');
       List<String> validPaths = [];
-
+      //print('result $result');
       if (result.isNotEmpty) {
         for (var row in result) {
           final filePath = row['file_path'] as String?;
-          if (filePath != null && File(filePath).existsSync()) {
+          if (filePath != null) {
             //print('DatabaseHelper: Found cached image for profile $profileId, url=$imageUrl, path=$filePath');
             validPaths.add(filePath);
           } else {
@@ -1090,8 +1115,57 @@ class DatabaseHelper {
     }
   }
 
+  Future<void> appendImagesToProfile(String hashedId, [List<String>? newImagePaths]) async {
+    try {
+      final db = await database;
 
-  ////////// CUSTOM LISTS //////////
+      // Fetch the profile from other_user_profiles
+      final result = await db.query(
+        'other_user_profiles',
+        where: 'profile_data LIKE ?',
+        whereArgs: ['%\"hashedId\":\"$hashedId\"%'],
+      );
+
+      if (result.isEmpty) {
+        print('DatabaseHelper: No profile found for hashedId $hashedId in other_user_profiles');
+        return;
+      }
+
+      // Get the profile data
+      final profileDataJson = result.first['profile_data'] as String;
+      final profileData = jsonDecode(profileDataJson) as Map<dynamic, dynamic>;
+
+      // Fetch image paths from firestorage_paths if not provided
+      final imagePaths = newImagePaths ?? await getFireStoragePaths(hashedId);
+
+      // Get existing images from profile_data
+      final existingImages = (profileData['images'] as List<dynamic>?)?.cast<String>() ?? [];
+
+      // Append new image paths, avoiding duplicates
+      final updatedImages = [...existingImages, ...imagePaths.where((path) => !existingImages.contains(path))];
+
+      // Update profile_data with new images
+      profileData['images'] = updatedImages;
+
+      // Save updated profile_data back to the database
+      await db.update(
+        'other_user_profiles',
+        {
+          'profile_data': jsonEncode(profileData),
+        },
+        where: 'profile_data LIKE ?',
+        whereArgs: ['%\"hashedId\":\"$hashedId\"%'],
+      );
+
+      print('DatabaseHelper: Appended ${imagePaths.length} image paths to profile $hashedId, total images: ${updatedImages.length}');
+    } catch (e) {
+      print('DatabaseHelper: Error appending images to profile $hashedId: $e');
+    }
+  }
+
+
+
+  ////////// LISTS //////////
 
   Future<void> addProfileToList(String listName, String name, Map<dynamic, dynamic> profileData) async {
     try {
@@ -1295,10 +1369,10 @@ class DatabaseHelper {
       // Log all tables
       //await printTable('settings');
       //await printTable('profile_metadata', decodeJson: true);
-      //await printTable('other_user_profiles', decodeJson: true);
+      await printTable('other_user_profiles', decodeJson: true);
       //await printTable('filters', decodeJson: true);
       //await printTable('cached_images');
-      await printTable('firestorage_paths');
+      //await printTable('firestorage_paths');
       //await printTable('custom_lists');
 
       // Additional summary
