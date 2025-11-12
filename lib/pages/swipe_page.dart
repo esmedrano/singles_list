@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:integra_date/widgets/filters_menu.dart' as filters_menu;
+import 'package:integra_date/widgets/sort_menu.dart' as sort_menu;
 import 'package:integra_date/widgets/database_page_widgets/banner_view.dart' show _getImagePath;
 import 'dart:io';
 import 'package:integra_date/databases/sqlite_database.dart' as sqlite;
 import 'package:integra_date/scripts/save_profile_to_list.dart' as save_profile_to_list; 
 import 'package:integra_date/scripts/create_profile_url.dart' as create_profile_url;
-import 'package:vector_math/vector_math_64.dart' as vm;
+import 'package:integra_date/widgets/database_page_widgets/banner_view.dart' as banner_view; 
 
 bool hasDisplayedSearchedProfile = true; // Tracks if searchedProfile was shown
 void toggleDisplaySearchFalse() {
@@ -19,8 +20,80 @@ void toggleDisplaySearchTrue() {
 }
 
 bool resetIndexAfterFilter = false;
-void resetIndexAfterFiltering() {
+void resetIndexAfterFiltering() {  // This is triggered by pressing the apply filters button
   resetIndexAfterFilter = true;
+}
+
+class SwipePageWrapper extends StatefulWidget {
+  const SwipePageWrapper({
+    super.key,
+    required this.profiles,
+    this.databaseIndex,
+    required this.addNewFilteredProfiles,
+    required this.searchedProfile,
+  });
+
+  final Future<List<Map<dynamic, dynamic>>> profiles;
+  final int? databaseIndex;
+  final Function(bool?) addNewFilteredProfiles;
+  final Map<dynamic, dynamic>? searchedProfile;
+
+  @override
+  SwipePageWrapperState createState() => SwipePageWrapperState();
+}
+
+class SwipePageWrapperState extends State<SwipePageWrapper> {
+
+
+  @override
+  void initState() {
+    super.initState();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+    }
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Stack(
+        children: [
+          // Child SwipePage with profile content
+          SwipePage(
+            profiles: widget.profiles,
+            databaseIndex: widget.databaseIndex,
+            addNewFilteredProfiles: widget.addNewFilteredProfiles,
+            searchedProfile: widget.searchedProfile,
+          ),
+
+          // // Sort and Filter buttons
+          // Positioned(
+          //   child: Padding(
+          //     padding: const EdgeInsets.only(top: 5, right: 10),
+          //     child: Align(
+          //       alignment: Alignment.topRight,
+          //       child: Row(
+          //         mainAxisSize: MainAxisSize.min,
+          //         children: [
+          //           sort_menu.SortersMenu(addNewFilteredProfiles: widget.addNewFilteredProfiles),
+          //           filters_menu.FiltersMenu(addNewFilteredProfiles: widget.addNewFilteredProfiles),
+          //         ],
+          //       ),
+          //     ),
+          //   ),
+          // )
+        ],
+      ),
+    );
+  }
 }
 
 class SwipePage extends StatefulWidget {
@@ -71,12 +144,12 @@ class SwipePageState extends State<SwipePage> {
   }
 
   Future<void> _loadProfiles() async {
-    print('Loaded lists from swipe page');
+    print('swipe_page.dart: Loaded lists from swipe page');
     final currentProfile = await _getCurrentProfile();
     if (currentProfile != null) {
-      profileSaved = await save_profile_to_list.ProfileListManager.isProfileSaved('saved', currentProfile['name']);
-      profileLiked = await save_profile_to_list.ProfileListManager.isProfileSaved('liked', currentProfile['name']);
-      profileDisliked = await save_profile_to_list.ProfileListManager.isProfileSaved('disliked', currentProfile['name']);
+      profileSaved = await save_profile_to_list.ProfileListManager.isProfileSaved('saved', currentProfile['hashedId']);
+      profileLiked = await save_profile_to_list.ProfileListManager.isProfileSaved('liked', currentProfile['hashedId']);
+      profileDisliked = await save_profile_to_list.ProfileListManager.isProfileSaved('disliked', currentProfile['hashedId']);
       final savedProfiles = await save_profile_to_list.ProfileListManager.loadProfilesInList('saved');
       setState(() {
         profilesInList = savedProfiles;
@@ -94,9 +167,6 @@ class SwipePageState extends State<SwipePage> {
       profileIndex = 0;
       resetIndexAfterFilter = false;
     }
-
-    print('holderSnapshot.length ${holderSnapshot.length}');
-    print('profileIndex $profileIndex');
     
     return holderSnapshot.isNotEmpty ? holderSnapshot[profileIndex] : null;
   }
@@ -107,7 +177,7 @@ class SwipePageState extends State<SwipePage> {
 
     await save_profile_to_list.ProfileListManager.toggleProfileInList(
       listName: listName,
-      profileHashedId: currentProfile['name'] as String,
+      profileHashedId: currentProfile['hashedId'] as String,
       profileData: currentProfile,
       isCurrentlySaved: isCurrentlyInList,
       context: context,
@@ -118,8 +188,18 @@ class SwipePageState extends State<SwipePage> {
             profileSaved = state['profileSaved'] as bool;
           } else if (listName == 'liked') {
             profileLiked = state['profileSaved'] as bool;
+            if (profileLiked) {
+              profileDisliked = false;
+            }
+            // Notify BannerView of state change
+            banner_view.notifyProfileStateChange(currentProfile['hashedId'], profileLiked, profileDisliked);
           } else if (listName == 'disliked') {
             profileDisliked = state['profileSaved'] as bool;
+            if (profileDisliked) {
+              profileLiked = false;
+            }
+            // Notify BannerView of state change
+            banner_view.notifyProfileStateChange(currentProfile['hashedId'], profileLiked, profileDisliked);
           }
         });
       },
@@ -131,9 +211,11 @@ class SwipePageState extends State<SwipePage> {
     print('Swipe page building now!');
     //print('searchedProfile: ${widget.searchedProfile}');
     
+    //_loadProfiles();  // Set the saved, liked, and disliked bools to true if the profile is in any of those lists
+
     List<Map<dynamic, dynamic>> profiles = [];
 
-    void nextProfile() {  
+    Future<void> nextProfile() async{  
       print('next profile');
       setState(() {
         if (widget.searchedProfile != null && !hasDisplayedSearchedProfile) {
@@ -141,20 +223,20 @@ class SwipePageState extends State<SwipePage> {
           hasDisplayedSearchedProfile = true;
           
           profileIndex = 0;
-          print(profileIndex);
+          print('swipe page: profileIndex: $profileIndex');
         } else {
           // Move to next profile in the list
           profileIndex += 1;
           if (profileIndex >= profiles.length) {
             profileIndex = 0;
           }
-          print(profileIndex);
+          print('swipe page: profileIndex: $profileIndex');
         }
       });
-      _loadProfiles(); // Reload profile states for the new profile
+      await _loadProfiles(); // Reload profile states for the new profile
     }
 
-    void previousProfile() {  
+    Future<void> previousProfile() async{  
       print('previous profile');
       setState(() {
         if (widget.searchedProfile != null && !hasDisplayedSearchedProfile) {
@@ -162,17 +244,17 @@ class SwipePageState extends State<SwipePage> {
           hasDisplayedSearchedProfile = true;
           
           profileIndex = 0;
-          print(profileIndex);
+          print('swipe page: profileIndex: $profileIndex');
         } else {
           // Move to next profile in the list
           profileIndex -= 1;
           if (profileIndex < 0) {
             profileIndex = profiles.length - 1;
           }
-          print(profileIndex);
+          print('swipe page: profileIndex: $profileIndex');
         }
       });
-      _loadProfiles(); // Reload profile states for the new profile
+      await _loadProfiles(); // Reload profile states for the new profile
     }
 
     return FutureBuilder<List<Map<dynamic, dynamic>>>(
@@ -197,18 +279,19 @@ class SwipePageState extends State<SwipePage> {
           ? widget.searchedProfile!['profile_data']
           : profiles[profileIndex];
 
-        print(currentProfile['tags']);
-
         return SafeArea(
           child: ListView(
             padding: const EdgeInsets.only(left: 5, right: 5, top: 5),
             children: [
+              
+              ///// PROFILE PICTURE /////
+
               Stack(
                 children: [
                   Center(
                     child: SizedBox(
                       child: ClipRRect(
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.only(topLeft: Radius.circular(10), topRight: Radius.circular(10)),
                         child: AspectRatio(
                           aspectRatio: 4 / 5,
                           child: FutureBuilder<String?>(
@@ -235,14 +318,6 @@ class SwipePageState extends State<SwipePage> {
                           ),
                         ),
                       ),
-                    ),
-                  ),
-                  Positioned(
-                    top: 5,
-                    right: 10,
-                    child: Container(
-                      alignment: Alignment.topRight,
-                      child: filters_menu.FiltersMenu(addNewFilteredProfiles: widget.addNewFilteredProfiles),
                     ),
                   ),
                   Positioned(
@@ -279,9 +354,10 @@ class SwipePageState extends State<SwipePage> {
               ///// PROFILE CONTAINER /////
               
               Container(
+                margin: EdgeInsets.only(bottom: 15),
                 decoration: BoxDecoration(
                   color: Color.fromARGB(255, 151, 160, 210),
-                  borderRadius: BorderRadius.all(Radius.circular(10)),
+                  borderRadius: BorderRadius.only(bottomLeft: Radius.circular(10), bottomRight: Radius.circular(10)),
                 ),
                 child: Column(
                   children: [
@@ -354,11 +430,11 @@ class SwipePageState extends State<SwipePage> {
                                   style: const TextStyle(fontStyle: FontStyle.italic, overflow: TextOverflow.ellipsis),
                                 ),
 
-                                if (currentProfile['biolgy'] != null && (currentProfile['biolgy'] != null ? currentProfile['biolgy'] != '' : false))
+                                if (currentProfile['biology'] != null && (currentProfile['biology'] != null ? currentProfile['biology'] != '' : false))
                                 const SizedBox(width: 25),
-                                if (currentProfile['biolgy'] != null && (currentProfile['biolgy'] != null ? currentProfile['biolgy'] != '' : false))
+                                if (currentProfile['biology'] != null && (currentProfile['biology'] != null ? currentProfile['biology'] != '' : false))
                                 Text(
-                                  '${currentProfile['biolgy']?.toString() ?? ''}',
+                                  '${currentProfile['biology']?.toString() ?? ''}',
                                   style: const TextStyle(fontStyle: FontStyle.italic, overflow: TextOverflow.ellipsis),
                                 ),
 
@@ -397,8 +473,8 @@ class SwipePageState extends State<SwipePage> {
                         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                         children: [
                           IconButton(
-                            onPressed: () {
-                              previousProfile();
+                            onPressed: () async{
+                              await previousProfile();
                             },
                             icon: Icon(Icons.replay)
                           ),
@@ -415,8 +491,8 @@ class SwipePageState extends State<SwipePage> {
                           ),
                                     
                           IconButton(
-                            onPressed: () {
-                              nextProfile();
+                            onPressed: () async{
+                              await nextProfile();
                             },
                             icon: Transform.scale(
                               scaleX: -1.0, // Mirrors horizontally
@@ -744,6 +820,36 @@ class _SaveButtonState extends State<SaveButton> {
       isSelected: profileSaved,
       icon: const Icon(Icons.bookmark_border_rounded, size: 25),
       selectedIcon: const Icon(Icons.bookmark_added_rounded, size: 25),
+    );
+  }
+}
+
+class FilterAndSortButtons extends StatefulWidget {
+  const FilterAndSortButtons({
+    super.key,
+    required this.addNewFilteredProfiles,
+  });
+
+  final Function(bool?) addNewFilteredProfiles;
+
+  @override
+  _FilterAndSortButtonsState createState() => _FilterAndSortButtonsState();
+}
+
+class _FilterAndSortButtonsState extends State<FilterAndSortButtons> {
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          alignment: Alignment.topRight,
+          child: sort_menu.SortersMenu(addNewFilteredProfiles: widget.addNewFilteredProfiles),
+        ),
+        Container(
+          alignment: Alignment.topRight,
+          child: filters_menu.FiltersMenu(addNewFilteredProfiles: widget.addNewFilteredProfiles),
+        ),
+      ]
     );
   }
 }

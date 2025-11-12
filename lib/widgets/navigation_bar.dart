@@ -18,8 +18,14 @@ import 'package:geolocator/geolocator.dart' as geolocator;
 
 import 'package:integra_date/widgets/permissions_popup.dart' as permissions_popup;
 
+import 'package:integra_date/scripts/notification_service.dart' as notification_service;
+import 'package:shared_preferences/shared_preferences.dart' as preference; // Used to store like and message flags 
+
 import 'package:integra_date/scripts/create_profile_url.dart' as create_profile_url;
-import 'package:firebase_analytics/firebase_analytics.dart'; // Add this
+import 'package:firebase_analytics/firebase_analytics.dart'; // Track profile link creations
+import 'package:integra_date/widgets/database_page_widgets/banner_view.dart' as banner_view; // Import banner_view
+import 'package:integra_date/widgets/sort_menu.dart' as sort_menu;
+import 'package:integra_date/widgets/filters_menu.dart' as filters_menu;
 
 // This turns keeps the ring algo from restarting if a query is occurring 
 bool runningRings = false;
@@ -75,9 +81,22 @@ class _NavigationBarState extends State<PageSelectBar> {
 
   Map<dynamic, dynamic>? searchedProfile;
 
+  List<String> newLikes = []; // Store sender IDs for display
+
   @override
   void initState() {
     super.initState();    
+    
+    // Define callback function found in notification_service.dart so that it checks data every time the flag is updated while the app is open
+    notification_service.NotificationService.onNewLikeReceived = () {
+      if (mounted) setState(() => checkNewData()); // Trigger fetch and update UI
+    };
+    
+    // Check the like and message flags to see if new downloads should commence (if not logged in this happens later)
+    if (loggedIn) {
+      checkNewData();  
+    }
+
     setQueryDistance();  // Required to load in initial filter value as query distance
     checkAndSetLogInState();
   }
@@ -88,10 +107,23 @@ class _NavigationBarState extends State<PageSelectBar> {
     sqlite.DatabaseHelper.instance.close();
   }
 
-  Future<void> refreshData() async{
-    setState(() {
+  Future<void> checkNewData() async {
+    final prefs = await preference.SharedPreferences.getInstance();
+    final userId = FirebaseAuth.instance.currentUser!.uid;
+    final unreadLikes = prefs.getInt('unreadLikes') ?? 0;
 
-    });
+    if (unreadLikes > 0) {
+      final likes = await FirebaseFirestore.instance
+          .collection('likes')
+          .where('receiverId', isEqualTo: userId)
+          .orderBy('timestamp', descending: true)
+          .limit(unreadLikes)
+          .get();
+      setState(() {
+        newLikes.addAll(likes.docs.map((doc) => doc.data()['senderId'] as String));
+      });
+      await prefs.setInt('unreadLikes', 0);
+    }
   }
 
   Future<void> setQueryDistance() async {
@@ -102,7 +134,6 @@ class _NavigationBarState extends State<PageSelectBar> {
       setState(() {
         radius = int.parse(distance?.replaceAll(' mi', '') ?? '5');
       });
-      print('PageSelectBar: Loaded radius: $radius mi');
     }
   }
 
@@ -139,6 +170,11 @@ class _NavigationBarState extends State<PageSelectBar> {
     if (loggedIn && !hasLocationForNewAccount && currentPageIndex == 0) {
       print('attempting to get initial location');
       permissionGranted = await sendLocation();
+    }
+
+    if (loggedIn) {  // request notification permisions and perform initial flag check
+      await notification_service.NotificationService.init();  // Request noticfication permissions 
+      checkNewData();
     }
 
     if (loggedIn && permissionGranted) {
@@ -295,7 +331,7 @@ class _NavigationBarState extends State<PageSelectBar> {
     int totalCachedProfiles = await sqlite.DatabaseHelper.instance.getAllOtherUserProfilesCount();  // This is needed to check if total cached profiles is greater than the page size, which if true will allow the pagination button to work
 
     await getTotalPageCount();
-    if (pageCount > 105) {
+    if (pageCount < 105) {
       setState(() {  // Rebuild the widget tree- including all views -with fresh profiles, but only if page one is not full. Otherwise the additional profiles can be found in the cache for later
         hasNextPage = totalCachedProfiles >= pageSize && totalCachedProfiles - currentPage * pageSize != 0;  // Allow pagination button to work, but only if there are more profiles
         profileData = completer.future;  // This should be from the cache, but i need to fix pagination first. 
@@ -303,12 +339,17 @@ class _NavigationBarState extends State<PageSelectBar> {
     }
   }
 
-  Future<void> addNewFilteredProfiles([bool? onlyDistanceChanged]) async{  // This function runs after saving the filters in the filter menu. It updates the profile data list with the filtered profiles, that are then passed to aoll pages below.    
+  // This function runs after saving the filters in the filter menu. 
+  // It updates the profile data list with the filtered and sorted profiles, that are then passed to all pages below.
+  // Optional param sortCategories from the sort ui is the list of sort buttons in order of selection. It needs to be passed to sqlite    
+  Future<void> addNewFilteredProfiles([bool? onlyDistanceChanged]) async{  
     late int page;
-    setQueryDistance();  // This sets the new max query distance if it has changed 
-    await getTotalPageCount(); // Await getTotalPageCount before setState
+    setQueryDistance();  // This sets the new max query distance if it has changed (updates the radius int)
+    
+    // RUNS FITLERS
+    await getTotalPageCount(); // Await getTotalPageCount before setState to update page count vars. This runs filters tocount filtered profiles
 
-    // Find the largest radius that has been depleted so far 
+    // Find the largest radius that has been depleted so far to be used as an arg in the following section 
     List<int> cachedRadii = await sqlite.DatabaseHelper.instance.getCachedRadii();
     late int largestRadius;
     if (cachedRadii.isNotEmpty) {
@@ -317,27 +358,49 @@ class _NavigationBarState extends State<PageSelectBar> {
       largestRadius = 0;
     }
 
-    // Set the page to current page if the updated radius arg is larger than the the already cached radii. This is so that the page doesn't go back to 1 when the distance filter is set to a greateer distance 
-    print(radius);
-    print(largestRadius);
-    if (radius > largestRadius && largestRadius != 0) {  // Say the filteres are set to 5 miles. The 5 mile radius includes hashes outside the 5 mile radius. So when the filters are set to 10 miles, the ring algo generates a new list of hashes, and then when the '5 mile radius' list is finally complete, it doesn't know to save it, so the largest radius is still 0 az the 10 mile radius is being cached. This means the page will not reset when filters are set to 5 after the first half of the 10 mile radius is cached. So check of the largest radius is still 0 instead of trying to keep track of the radius hash in the hash lists.  
+    // This sets the page to the last page if only distance is updated, 
+    // becuase the user will likely want to continue scrolling tfomr where they left off.
+    
+    // Otherwise it sets the page to page 1 to show the closest profiles for the new filter args.
+    if (radius > largestRadius && largestRadius != 0) {   
+      // Set the page to current page if the updated radius arg is larger than the the already cached radii. 
+      // This is so that the page doesn't go back to 1 when the distance filter is set to a greateer distance 
+      // Say the filteres are set to 5 miles. The 5 mile radius includes hashes outside the 5 mile radius. 
+      // So when the filters are set to 10 miles, the ring algo generates a new list of hashes, 
+      // and then when the '5 mile radius' list is finally complete, it doesn't know to save it, 
+      // so the largest radius is still 0 az the 10 mile radius is being cached. 
+      // This means the page will not reset when filters are set to 5 after the first half of the 10 mile radius is cached. 
+      // So check of the largest radius is still 0 instead of trying to keep track of the radius hash in the hash lists. 
+
       page = currentPage;
-      noRebuildAfterRadiusIncrease = true;  // After a bit more thinking it seems that the radius will never be cached. I should keep track of the hashes that are at the end of each radius. Or risk always reseting to page one. It should be fine if it always resets becuase the user can use the cupertino picker.
+      noRebuildAfterRadiusIncrease = true;  
+      // After a bit more thinking it seems that the radius will never be cached. 
+      // I should keep track of the hashes that are at the end of each radius. 
+      // Or risk always reseting to page one. It should be fine if it always resets becuase 
+      // the user can use the cupertino picker.
     } else {
       page = 1;
     }
 
-    // print('page $page');
-
+    // Update the profiles list by filtering and sorting profiles, the setState to send the new list to the children pages 
     setState(() {
       currentPage = page;
       hasPreviousPage = false;
-      profileData = sqlite.DatabaseHelper.instance.getAllOtherUserProfiles(page: page, pageSize: 105);  // This applies the filters that were saved   
+      print('\n');
+      print('\n');
+      print('\n');
+      print('navigation_bar.dart: Post apply filters / apply sort press');
+
+      // RUNS FITLERS
+      profileData = sqlite.DatabaseHelper.instance.getAllOtherUserProfiles(page: page, pageSize: 105);  // This applies the filters and sorters that were saved 
+      //print('navigation_bar.dart: profileData after filtering and sorting: ${profileData}');
     });
     
-    print('r $radius');
+    // Check if more profiles need to be loaded from firebase
     int totalCachedProfiles = await sqlite.DatabaseHelper.instance.getAllOtherUserProfilesCount();
     int remainingCachedProfiles = totalCachedProfiles - (pageSize * currentPage);  // Restart ring queries if the cache is depleted and the user changed the max distance
+    
+    // RUNS FITLERS
     int remainingFilteredProfiles = await sqlite.DatabaseHelper.instance.getFilteredProfilesCount();
     if (remainingCachedProfiles < 210 && totalCachedProfiles != 0 && !cachedRadii.contains(radius) || remainingFilteredProfiles < 210 && !cachedRadii.contains(radius)) {  // CHECK so it would really help if I knew the hash that should trigger the radius cache, because rt now the next radius rings are started without bothering to cache the old radius because it is only cached if the very last one is hit.  
       print('\n\n');
@@ -352,10 +415,9 @@ class _NavigationBarState extends State<PageSelectBar> {
     // int totalProfiles = await sqlite.DatabaseHelper.instance.getAllOtherUserProfilesCount();
     // pageCount = (totalProfiles / 105).ceil();
     int filteredProfiles = await sqlite.DatabaseHelper.instance.getFilteredProfilesCount(); 
-    print(filteredProfiles);
     filteredPageCount = (filteredProfiles / 105).ceil();
     pageCount = filteredPageCount;
-    print('filteredPageCount: ${filteredPageCount}');
+    print('navigation_bar.dart: filteredPageCount: ${filteredPageCount}');
   }
 
   Future<void> onNextPage([int? cupertinoDestination]) async{
@@ -558,13 +620,13 @@ class _NavigationBarState extends State<PageSelectBar> {
                 pageCount: pageCount,
                 filteredPageCount: filteredPageCount,
               ),
-              swipe_page.SwipePage(
+              swipe_page.SwipePageWrapper(
                 profiles: profileData,
                 databaseIndex: selectedDatabaseIndex,
                 addNewFilteredProfiles: addNewFilteredProfiles,
-                searchedProfile: searchedProfile
+                searchedProfile: searchedProfile,
               ),
-              messages_page.MessagePage(theme: theme),
+              messages_page.MessagePage(),
               profile_page.ProfilePage(
                 switchPage: switchPage,
               ),
@@ -597,6 +659,12 @@ class _NavigationBarState extends State<PageSelectBar> {
               currentPageIndex = index;
               navBarIndex = index;
             });
+            if (index == 0) {
+              // Notify ProfileInfo widgets to check for updates
+              banner_view.profileStateNotifier.value = [...banner_view.profileStateNotifier.value];  // The value needs to update to trigger the ValueNotifier
+              banner_view.clearProfileStateChanges();
+              print('Navigation: Triggered ProfileInfo state refresh for DatabasePage');
+            }
           },
           destinations: [
             Padding(

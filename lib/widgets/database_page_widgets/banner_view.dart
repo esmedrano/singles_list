@@ -12,6 +12,33 @@ import 'package:integra_date/pages/swipe_page.dart' as swipe_page;
 import 'package:integra_date/scripts/save_profile_to_list.dart' as save_profile_to_list; 
 import 'package:integra_date/scripts/create_profile_url.dart' as create_profile_url;
 
+// Global ValueNotifier for profile state changes
+class ProfileStateChange {
+  final String profileId;
+  final bool isLiked;
+  final bool isDisliked;
+
+  ProfileStateChange(this.profileId, this.isLiked, this.isDisliked);
+}
+
+final ValueNotifier<List<ProfileStateChange>> profileStateNotifier = ValueNotifier<List<ProfileStateChange>>([]);
+
+// Function to notify profile state change
+void notifyProfileStateChange(String profileId, bool isLiked, bool isDisliked) {
+  final currentChanges = profileStateNotifier.value;
+  // Avoid duplicates by updating existing entry or adding new one
+  final updatedChanges = currentChanges.where((change) => change.profileId != profileId).toList();
+  updatedChanges.add(ProfileStateChange(profileId, isLiked, isDisliked));
+  profileStateNotifier.value = updatedChanges;
+  print('Notified state change for profile $profileId: liked=$isLiked, disliked=$isDisliked');
+}
+
+// Clear profile state changes after processing
+void clearProfileStateChanges() {
+  profileStateNotifier.value = [];
+  print('Cleared profile state changes');
+}
+
 bool startedRingAlgo = false;
 bool paginatingNext = false;
 bool paginatingPrevious = false;
@@ -101,46 +128,94 @@ class BannerView extends StatelessWidget {
         return Column(
           children: [
             Expanded(
-              child: ListView.builder(
-                padding: const EdgeInsets.only(top: 30),
+              child: Scrollbar(
                 controller: scrollController,
-                itemCount: profiles.length + (isLoading ? 1 : 0),
-                itemBuilder: (context, index) {
-                  if (index == profiles.length - 1) {
-                    //return const Center(child: CircularProgressIndicator());
-                  }
-                  return Column(
-                    children: [
-                      BannerItem(
-                        key: ValueKey('${profiles[index]['name']}_$loadLists'), // Unique key based on profile and loadLists
-                        bannerHeight: onlyBannerHeight,
-                        profilePictureHeight: profilePictureHeight,
-                        expandedPicturesHeight: expandedPicturesHeight,
-                        profile: profiles[index],
-                        index: index,
-                        switchPage: switchPage,
-                        startRingAlgo: startRingAlgo
-                      ),
-
-                      if (index == profiles.length - 1)  // The way this item builder iterates, an if statemnet is needed to be sure the pagination buttons are only built under the last banner item
-                      pagination_buttons.PaginationButtons(
-                        currentPage: currentPage,
-                        hasPreviousPage: hasPreviousPage,
-                        hasNextPage: hasNextPage,
-                        onPreviousPage: ([int? cupertinoDestination]) {
-                          onPreviousPage(cupertinoDestination);
-                          paginatingPrevious = true;  
-                        },
-                        onNextPage: ([int? cupertinoDestination]) {
-                          onNextPage(cupertinoDestination);
-                          paginatingNext = true;  
-                        },
-                        pageCount: pageCount,
-                        filteredPageCount: filteredPageCount,
-                      ),
-                    ],
-                  ); 
-                },
+                thumbVisibility: true, // Always show scrollbar
+                interactive: true,
+                child: ListView.builder(
+                  padding: const EdgeInsets.only(top: 15),
+                  controller: scrollController,
+                  itemCount: profiles.length + (isLoading ? 1 : 0),
+                  itemBuilder: (context, index) {
+                    if (index == profiles.length - 1) {
+                      //return const Center(child: CircularProgressIndicator());
+                    }
+                    return Column(
+                      children: [
+                        BannerItem(
+                          key: ValueKey('${profiles[index]['name']}_$loadLists'), // Unique key based on profile and loadLists
+                          bannerHeight: onlyBannerHeight,
+                          profilePictureHeight: profilePictureHeight,
+                          expandedPicturesHeight: expandedPicturesHeight,
+                          profile: profiles[index],
+                          index: index,
+                          switchPage: switchPage,
+                          startRingAlgo: startRingAlgo
+                        ),
+                
+                        if (index == profiles.length - 1 && currentPage == filteredPageCount)
+                        FutureBuilder<List<dynamic>>(
+                          future: Future.wait([
+                            sqlite.DatabaseHelper.instance.getFilterValue('distance'), 
+                            sqlite.DatabaseHelper.instance.getCachedRadii(),
+                          ]),
+                          builder: (context, snapshot) {
+                            if (snapshot.connectionState == ConnectionState.waiting) {
+                              return const Text('Loading radius...'); // Placeholder while loading
+                            } else if (snapshot.hasError) {
+                              return Text('Error: ${snapshot.error}'); // Handle errors
+                            } else if (snapshot.hasData) {
+                              int distanceFilter = int.parse(snapshot.data![0].replaceAll(' mi', '').trim());
+                              List cachedRadii = snapshot.data![1];
+                                return Container(
+                                  width: MediaQuery.of(context).size.width,
+                                  margin: EdgeInsets.only(top: 15, left: 15, right: 15),
+                                  padding: EdgeInsets.only(left: 15, right: 15),
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.rectangle,
+                                    borderRadius: BorderRadius.circular(10),
+                                    color: Color.fromARGB(255, 151, 160, 210),
+                                  ),
+                                  child: cachedRadii.contains(distanceFilter) 
+                                    ? Text(
+                                        '\n'
+                                        'All profiles within ${snapshot.data![0]} have been loaded.\n\n'
+                                        'Increase the distance filter to load more!'
+                                        '\n',
+                                        textAlign: TextAlign.center,
+                                      )
+                                    : Text('Increase the distance filter to load more profiles!')
+                                );
+                            } else {
+                              print('Cached radii: ${snapshot.data![1]}, ');
+                              return const Text('No radius data available');
+                            }
+                          },
+                        ),
+                
+                        if (index == profiles.length - 1)  // The way this item builder iterates, an if statemnet is needed to be sure the pagination buttons are only built under the last banner item
+                        Padding(
+                          padding: const EdgeInsets.only(top: 15, bottom: 15),
+                          child: pagination_buttons.PaginationButtons(
+                            currentPage: currentPage,
+                            hasPreviousPage: hasPreviousPage,
+                            hasNextPage: hasNextPage,
+                            onPreviousPage: ([int? cupertinoDestination]) {
+                              onPreviousPage(cupertinoDestination);
+                              paginatingPrevious = true;  
+                            },
+                            onNextPage: ([int? cupertinoDestination]) {
+                              onNextPage(cupertinoDestination);
+                              paginatingNext = true;  
+                            },
+                            pageCount: pageCount,
+                            filteredPageCount: filteredPageCount,
+                          ),
+                        ),
+                      ],
+                    ); 
+                  },
+                ),
               ),
             ),
           ],
@@ -177,7 +252,10 @@ class BannerItem extends StatefulWidget {
   _BannerItemState createState() => _BannerItemState();
 }
 
-class _BannerItemState extends State<BannerItem> {
+class _BannerItemState extends State<BannerItem> with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
   //bool picsAreExpanded = false;
   bool introIsExpanded = false;
   Offset? _tapPosition;
@@ -244,7 +322,7 @@ class _BannerItemState extends State<BannerItem> {
     Future<String?>? path = Future.value(widget.profile['profilePic']);
 
     return Padding(
-      padding: const EdgeInsets.only(top: 5, left: 5, right: 5),
+      padding: const EdgeInsets.only(top: 15, left: 15, right: 15),
       child: BannerContent(
         bannerHeight: widget.bannerHeight,
         profilePictureHeight: widget.profilePictureHeight,
@@ -277,53 +355,6 @@ class _BannerItemState extends State<BannerItem> {
         //toggleProfile: _toggleProfile, 
         switchPage: widget.switchPage,
       ),
-      // child: InkWell(  // Tap controls
-      //   onTap: () => BannerItem.picsAreExpanded = !BannerItem.picsAreExpanded,
-      //   onDoubleTap: () {
-      //     switchToSipeViewFromProfile();
-      //   },
-      //   onLongPress: () {
-      //     displayShareDialogue();
-      //   },
-      //   onTapDown: (details) {
-      //     setState(() {
-      //       _tapPosition = details.globalPosition;
-      //     });
-      //   },
-      //   borderRadius: BorderRadius.circular(10),
-      //   child: BannerContent(
-      //     bannerHeight: widget.bannerHeight,
-      //     profilePictureHeight: widget.profilePictureHeight,
-      //     expandedPicturesHeight: widget.expandedPicturesHeight,
-      //     profile: widget.profile,
-      //     //profilePictures: profilePictures,
-      //     //picsAreExpanded: BannerItem.picsAreExpanded,
-      //     introIsExpanded: introIsExpanded,
-      //     onProfileTap: () => showProfileDialog(
-      //       context: context,
-      //       imagePath: widget.profile['profilePic'],
-      //       index: widget.index,
-      //       onMenuAction: (action) {
-      //         print('$action selected for index ${widget.index}');
-      //       },
-      //       tapPosition: _tapPosition ?? Offset.zero,
-      //       profileId: widget.profile['name'],
-      //     ),
-      //     onIntroToggle: () => setState(() {introIsExpanded = !introIsExpanded;}),
-      //     // onPicsToggle: () {
-      //     //   if (mounted) {
-      //     //     setState(() {picsAreExpanded = !picsAreExpanded;});
-      //     //   }
-      //     // }, 
-      //     onSharePress: () => displayShareDialogue(),
-      //     onSwipePress: () => switchToSipeViewFromProfile(),
-      //     profileSaved: profileSaved, 
-      //     profileLiked: profileLiked,
-      //     profileDisliked: profileDisliked,
-      //     //toggleProfile: _toggleProfile, 
-      //     switchPage: widget.switchPage,
-      //   ),
-      // ),
     );
   }
 }
@@ -431,7 +462,7 @@ class _BannerContentState extends State<BannerContent> {
                 height: widget.bannerHeight,
                 decoration: ShapeDecoration(
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.only(topLeft: Radius.circular(10), topRight: Radius.circular(10)),
                   ),
                   image: DecorationImage(
                     image: FileImage(File(imagePath)),
@@ -509,7 +540,14 @@ class _FullDropDownState extends State<FullDropDown> {
     return Column(
       children: [ 
         InkWell(  // Tap controls
-          onTap: () => BannerItem.picsAreExpanded = !BannerItem.picsAreExpanded,
+          // onTap: () {  this is great but if the images arent cahced yet it breaks 
+          //   if (mounted) {
+          //     setState(() {
+          //       picsAreExpanded = !picsAreExpanded;
+          //       BannerItem.picsAreExpanded = !BannerItem.picsAreExpanded; 
+          //     });
+          //   }
+          // },
           onDoubleTap: () {
             widget.onSwipePress();
           },
@@ -521,7 +559,7 @@ class _FullDropDownState extends State<FullDropDown> {
           //      _tapPosition = details.globalPosition;
           //    });
           //  },
-          borderRadius: BorderRadius.circular(10),
+          // borderRadius: BorderRadius.only(bottomLeft: Radius.circular(10), bottomRight: Radius.circular(10)),
           child:  AnimatedContainer(
             duration: const Duration(milliseconds: 300),
             curve: Curves.easeInOut,
@@ -529,10 +567,9 @@ class _FullDropDownState extends State<FullDropDown> {
             decoration: BoxDecoration(
               color: Color.fromARGB(255, 151, 160, 210),
               borderRadius: picsAreExpanded
-                  ? const BorderRadius.only(
-                      topLeft: Radius.circular(10), topRight: Radius.circular(10))
-                  : const BorderRadius.all(Radius.circular(10)),
-              //borderRadius: const BorderRadius.only(topLeft: Radius.circular(10), topRight: Radius.circular(10))
+                  ? null
+                  : const BorderRadius.only(bottomLeft: Radius.circular(10), bottomRight: Radius.circular(10)),
+              //borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(10), bottomRight: Radius.circular(10))
             ),
             child: Column(children: [
               ProfileInfo(
@@ -631,6 +668,45 @@ class _ProfileInfoState extends State<ProfileInfo> {
   bool profileDisliked = false;
   bool profileSaved = false;
 
+  @override
+  void initState() {
+    super.initState();
+    _loadLikeDislikeStatus();
+    // Listen to profile state changes
+    profileStateNotifier.addListener(_handleProfileStateChange);
+  }
+
+  @override
+  void dispose() {
+    profileStateNotifier.removeListener(_handleProfileStateChange);
+    super.dispose();
+  }
+
+  // void _handleProfileStateChange() {
+  //   if (mounted && profileStateNotifier.value?.profileId == widget.profile['hashedId']) {
+  //     setState(() {
+  //       profileLiked = profileStateNotifier.value!.isLiked;
+  //       profileDisliked = profileStateNotifier.value!.isDisliked;
+  //     });
+  //     print('ProfileInfo rebuilt for profile ${widget.profile['hashedId']}');
+  //   }
+  // }
+
+  void _handleProfileStateChange() {
+    final stateChanges = profileStateNotifier.value;
+    final matchingChange = stateChanges.firstWhere(
+      (change) => change.profileId == widget.profile['hashedId'],
+      orElse: () => ProfileStateChange(widget.profile['hashedId'], profileLiked, profileDisliked),
+    );
+    if (mounted && matchingChange.profileId == widget.profile['hashedId']) {
+      setState(() {
+        profileLiked = matchingChange.isLiked;
+        profileDisliked = matchingChange.isDisliked;
+      });
+      print('ProfileInfo rebuilt for profile ${widget.profile['hashedId']}');
+    }
+  }
+
   Future<void> toggleProfile(String listName, bool isCurrentlyInList) async {
     await save_profile_to_list.ProfileListManager.toggleProfileInList(
       listName: listName,
@@ -657,12 +733,6 @@ class _ProfileInfoState extends State<ProfileInfo> {
         });
       },
     );
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _loadLikeDislikeStatus();
   }
 
   Future<void> _loadLikeDislikeStatus() async {
@@ -742,17 +812,22 @@ class _ProfileInfoState extends State<ProfileInfo> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                            'age: ${widget.profile['age']?.toString() ?? 'N/A'}',
+                            '${widget.profile['age']?.toString() ?? 'N/A'}',
                             style: const TextStyle(fontStyle: FontStyle.italic, overflow: TextOverflow.ellipsis),
                           ),
                           const SizedBox(width: 25),
                           Text(
-                            'height: ${widget.profile['height']?.toString() ?? 'N/A'}',
+                            '${widget.profile['biology']?.toString() ?? 'N/A'}',
                             style: const TextStyle(fontStyle: FontStyle.italic, overflow: TextOverflow.ellipsis),
                           ),
                           const SizedBox(width: 25),
                           Text(
-                            'distance: ${widget.profile['distance']?.toString() ?? 'N/A'} mi',
+                            '${widget.profile['height']?.toString() ?? 'N/A'}',
+                            style: const TextStyle(fontStyle: FontStyle.italic, overflow: TextOverflow.ellipsis),
+                          ),
+                          const SizedBox(width: 25),
+                          Text(
+                            '${widget.profile['distance']?.toString() ?? 'N/A'} mi',
                             style: const TextStyle(fontStyle: FontStyle.italic),
                           ),
                         ],
@@ -1072,7 +1147,7 @@ class Intro extends StatefulWidget {
   _IntroState createState() => _IntroState();
 }
 
-class _IntroState extends State<Intro> {
+class _IntroState extends State<Intro> {  // The tags etc. are also included here
   bool introIsExpanded = false;
 
   @override
@@ -1096,26 +1171,164 @@ class _IntroState extends State<Intro> {
             bottomRight: Radius.circular(10)),
       ),
       child: Column(children: [
+        ////////////////////////////////////////////////
+        //////////////////// Intro  ////////////////////
+        ////////////////////////////////////////////////
+
+        Container(
+          margin: const EdgeInsets.only(top: 15, bottom: 15, left: 15, right: 15),
+          
+          //padding: const EdgeInsets.all(5),
+          decoration: BoxDecoration(
+            border: Border.all(width: 2, color: Colors.black),
+            borderRadius: const BorderRadius.all(Radius.circular(10)),
+            color: const Color.fromARGB(255, 196, 205, 255),
+            boxShadow: const [
+              BoxShadow(
+                color: Color.fromRGBO(0, 0, 0, 0.6),
+                spreadRadius: 1,
+                blurRadius: 5,
+                offset: Offset(0, 5),
+              ),
+            ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.only(top: 15, bottom: 15, left: 15, right: 15),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(  // Keep this row to expand the intro box if the user does not add an intro. Also, go ahead and remove the intro box entirely if the user does not have one
+                  mainAxisSize: MainAxisSize.max,
+                  children: [
+                    Text('Intro:'),
+                  ],
+                ),
+                SizedBox(height: 15),
+                Text(
+                  widget.profile['intro']?.toString() ?? '',
+                  style: const TextStyle(fontSize: 16),
+                ),
+              ]
+            ),
+          ),
+        ),
+
+        ///////////////////////////////////////////////
+        //////////////////// Tags  ////////////////////
+        ///////////////////////////////////////////////
+        
+        Container(
+          margin: const EdgeInsets.only(bottom: 15, left: 15, right: 15),
+          //padding: const EdgeInsets.all(5),
+          decoration: BoxDecoration(
+            border: Border.all(width: 2, color: Colors.black),
+            borderRadius: const BorderRadius.all(Radius.circular(10)),
+            color: const Color.fromARGB(255, 196, 205, 255),
+            boxShadow: const [
+              BoxShadow(
+                color: Color.fromRGBO(0, 0, 0, 0.6),
+                spreadRadius: 1,
+                blurRadius: 5,
+                offset: Offset(0, 5),
+              ),
+            ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.only(top: 15, bottom: 15, left: 15, right: 15),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisSize: MainAxisSize.max,
+                  children: [
+                    Text('Tags:'),
+                  ],
+                ),
+                SizedBox(height: 15),
+                Wrap(
+                  spacing: 8.0, // Space between chips
+                  runSpacing: 4.0, // Space between rows
+                  children: [
+                    for (String tag in widget.profile['tags'])
+                    Chip(
+                      color: WidgetStatePropertyAll(Color.fromARGB(255, 151, 160, 210)),
+
+                      label: Text(tag, style: TextStyle(color: Color(0xFF000000))),
+                    ),
+                    // for (int x in [1, 1, 1, 1, 1, 1, 1, 1])
+                    // Chip(
+                    //   color: WidgetStatePropertyAll(Color.fromARGB(255, 151, 160, 210)),
+
+                    //   label: Text('tag', style: TextStyle(color: Color(0xFF000000))),
+                    // )
+                  ]
+                )
+              ]
+            ),
+          )
+        ),
+
+        ///////////////////////////////////////////////////
+        //////////////////// Children  ////////////////////
+        ///////////////////////////////////////////////////
+
+        if(widget.profile['children'] != null && (widget.profile['children'] != null ? widget.profile['children'] != '' : false))
         Padding(
           padding: const EdgeInsets.only(left: 15),
           child: Row(
             children: [
-              Text('Intro'),
-              IconButton(
-                onPressed: onIntroToggle,
-                isSelected: introIsExpanded,
-                selectedIcon: const Icon(Icons.keyboard_arrow_up),
-                icon: const Icon(Icons.keyboard_arrow_down),
+              Text('Children:'),
+              SizedBox(width: 15),
+              Chip(
+                color: WidgetStatePropertyAll(Color.fromARGB(255, 151, 160, 210)),
+                label: Text(
+                  widget.profile['children'],
+                  style: TextStyle(color: Color(0xFF000000))
+                ),
               ),
             ],
           ),
         ),
-        if (introIsExpanded && widget.profile['intro'] != null)
+
+        //////////////////////////////////////////////////////////////
+        //////////////////// Relationship Intent  ////////////////////
+        //////////////////////////////////////////////////////////////
+        
+        if(widget.profile['relationship_intent'] != null && (widget.profile['relationship_intent'] != null ? widget.profile['relationship_intent'].isNotEmpty : false))
         Padding(
-          padding: const EdgeInsets.only(left: 15, bottom: 15, right: 15),
-          child: Text(
-            widget.profile['intro']?.toString() ?? '',
-            style: const TextStyle(fontSize: 16),
+          padding: const EdgeInsets.only(left: 15, bottom: 15),
+          child: Row(
+            children: [
+              Text('Relationship intent:'),
+              SizedBox(width: 15),
+              Wrap(
+                spacing: 8.0, // Space between chips
+                runSpacing: 4.0, // Space between rows
+                children: [
+                  for (String entry in widget.profile['relationship_intent'])
+                  Chip(
+                    color: WidgetStatePropertyAll(Color.fromARGB(255, 151, 160, 210)),
+                    label: Text(
+                      entry,
+                      style: TextStyle(color: Color(0xFF000000))
+                    ),
+                  ),
+                ]
+              ),
+            ],
+          ),
+        ),
+
+        ///////////////////////////////////////////////////////////
+        //////////////////// Personality Type  ////////////////////
+        ///////////////////////////////////////////////////////////
+
+        if(widget.profile['personality'] != null && (widget.profile['personality'] != null ? widget.profile['personality'] != 'none' : false))
+        Chip(
+          color: WidgetStatePropertyAll(Color.fromARGB(255, 151, 160, 210)),
+          label: Text(
+            widget.profile['personality'],
+            style: TextStyle(color: Color(0xFF000000))
           ),
         ),
       ]),

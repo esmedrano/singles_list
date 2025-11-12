@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'dart:io';
-
-import 'package:integra_date/widgets/filters_menu.dart' as filters_menu;
 import 'package:integra_date/databases/sqlite_database.dart' as sqlite;
 import 'package:integra_date/pages/swipe_page.dart' as swipe_page;
 import 'package:integra_date/scripts/search_bar_query.dart' as search_bar_query;
 import 'package:integra_date/widgets/share_popup.dart' as share_popup; 
+import 'package:integra_date/widgets/sort_menu.dart' as sort_menu;
+import 'package:integra_date/widgets/filters_menu.dart' as filters_menu;
 
 class DateSearch extends StatefulWidget {
   const DateSearch({
@@ -13,19 +13,21 @@ class DateSearch extends StatefulWidget {
     required this.theme,
     required this.onToggleViewMode,
     required this.addNewFilteredProfiles,
-    required this.switchPage
+    required this.switchPage,
+    required this.onScrollToggle,
   });
 
   final ThemeData theme;
   final VoidCallback onToggleViewMode;
   final Function(bool?) addNewFilteredProfiles;
   final Function(int, int?, Map<dynamic, dynamic>?) switchPage;
+  final Function(bool) onScrollToggle;
 
   @override
-  State<DateSearch> createState() => _DateSearchState();
+  State<DateSearch> createState() => DateSearchState();
 }
 
-class _DateSearchState extends State<DateSearch> {
+class DateSearchState extends State<DateSearch> {
   final FocusNode _focusNode = FocusNode();
   bool isBannerView = true;  // track the view mode to change the toggle button text when view is toggled 
   String? selectedFilter;
@@ -34,11 +36,19 @@ class _DateSearchState extends State<DateSearch> {
 
   List<Map<dynamic, dynamic>>? firebaseProfiles;
 
+  bool maxScrollOffset = false; // Local state for button icon toggle
+  
+  @override
+  void initState() {
+    super.initState();
+  }
+
+
   @override
   void dispose() {
     _focusNode.dispose();
     _searchController.dispose();
-    super.dispose();  // Call this every time dispose() is used bc of framework idiosyncrasies 
+    super.dispose();
   }
   
   String formatPhone(String phone) {
@@ -68,42 +78,77 @@ class _DateSearchState extends State<DateSearch> {
   Widget build(BuildContext context) {  
     return SafeArea(
       child: Container(
+        decoration: BoxDecoration(
+          color: Colors.transparent
+        ),
         padding: EdgeInsets.only(top: 30, bottom: 0),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
-      
+            SizedBox(width: 15),
+             
             buildToggleButton(),
-      
-            buildSearchBar(context),
-      
-            filters_menu.FiltersMenu(addNewFilteredProfiles: widget.addNewFilteredProfiles),
-      
+
+            // IconButton(
+            //   style: ButtonStyle(
+            //     backgroundColor: WidgetStatePropertyAll(Color(0x50FFFFFF)),
+            //     foregroundColor: WidgetStatePropertyAll(Color(0x90000000)),
+            //   ),
+            //   onPressed: () {
+            //     setState(() {
+            //       maxScrollOffset = !maxScrollOffset; // Toggle button state
+            //     });
+            //     widget.onScrollToggle(maxScrollOffset); // Call callback
+            //   },
+            //   isSelected: maxScrollOffset,
+            //   selectedIcon: const Icon(Icons.keyboard_arrow_up, size: 25),
+            //   icon: const Icon(Icons.keyboard_arrow_down, size: 25),
+            // ),
+
+            Flexible(  // Expands the search bar to fit the remaining space without overflowing the screen width
+              child: Padding(
+                padding: const EdgeInsets.only(left: 15, right: 15),
+                child: buildSearchBar(context),
+              )
+            ),
+
+            // sort_menu.SortersMenu(
+            //   addNewFilteredProfiles: widget.addNewFilteredProfiles,
+            // ),
+            
+            filters_menu.FiltersMenu(
+              addNewFilteredProfiles: widget.addNewFilteredProfiles,
+            ),
+
+            SizedBox(width: 15),
           ],
         ),
       ),
     );
   }
 
-  TextButton buildToggleButton() {  // View toggle button
-    return TextButton(  
-      style: ButtonStyle(
-        backgroundColor: WidgetStatePropertyAll(Color(0x50FFFFFF)),
-        foregroundColor: WidgetStatePropertyAll(Color(0x90000000)),
-        shape: WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
-        // overlayColor: ,
-        // padding: WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 0, vertical: 0)),
-        fixedSize: WidgetStatePropertyAll(Size(70, 0)),
-        // maximumSize: WidgetStatePropertyAll(Size(10, 10)),
+  SizedBox buildToggleButton() {  // View toggle button
+    return SizedBox(
+      width: 50,
+      child: IconButton(  
+        style: ButtonStyle(
+          backgroundColor: WidgetStatePropertyAll(Color(0x50FFFFFF)),
+          foregroundColor: WidgetStatePropertyAll(Color(0x90000000)),
+        ),
+        onPressed: () {
+          setState(() {
+            isBannerView = !isBannerView;
+          });
+          widget.onToggleViewMode(); 
+        },
+        icon: Icon(Icons.apps_rounded),  // Update button text on view toggle
+        isSelected: !isBannerView,
+        selectedIcon: 
+          Transform.rotate(
+            angle: 3.1415 / 2,
+            child:Icon(Icons.rectangle_outlined),
+          )
       ),
-      onPressed: () {
-        setState(() {
-          isBannerView = !isBannerView;
-        });
-        widget.onToggleViewMode(); 
-      },
-
-      child: Text(isBannerView ? 'Grid' : 'Banner'),  // Update button text on view toggle
     );
   }
 
@@ -114,7 +159,7 @@ class _DateSearchState extends State<DateSearch> {
       viewBackgroundColor: Color.fromARGB(255,190,198,233),
       viewElevation: 0,
       viewShape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      viewConstraints: BoxConstraints(maxWidth: 250, maxHeight: MediaQuery.of(context).size.height / 4),
+      viewConstraints: BoxConstraints(maxWidth: 500, minWidth: 25, maxHeight: MediaQuery.of(context).size.height / 4),
       viewLeading: IconButton(
         onPressed: () {
           setState(() {
@@ -134,7 +179,7 @@ class _DateSearchState extends State<DateSearch> {
         return SearchBar(
           controller: controller,  // Listner for user interaction
           focusNode: _focusNode,  // Attatch the focus node to the search bar
-          constraints: BoxConstraints(maxWidth: 250, minWidth: 250, minHeight: 50, maxHeight: 50),   
+          constraints: BoxConstraints(maxWidth: 500, minWidth: 25, minHeight: 50, maxHeight: 50),   
           
           backgroundColor: WidgetStatePropertyAll(Color.fromARGB(255,190,198,233)),
           // overlayColor: WidgetStatePropertyAll(Color(0x30303030)),
@@ -202,16 +247,18 @@ class _DateSearchState extends State<DateSearch> {
               return ListTile(
                 leading: 
                   InkWell(
-                    onTap: () =>
+                    onTap: () {
+                      print(profile['profile_data']);
                       share_popup.showProfileDialog(
                         context: context,
-                        imagePath: profile['profile_data']['profilePic'],
+                        imagePath: Future.value(profile['profile_data']['profilePic']),
                         index: 0,
                         onMenuAction: (action) {
                         },
                         tapPosition: const Offset(0, 0),
                         profileId: profile['name'],
-                      ),
+                      );
+                    },
                     borderRadius: BorderRadius.circular(24),
                     child: FutureBuilder<String?>(
                       future: _getImagePath(
@@ -313,8 +360,7 @@ class _DateSearchState extends State<DateSearch> {
   }
 }
 
-Future<String?> _getImagePath(
-      String? imagePath, String profileId, profile, BuildContext context) async {
+Future<String?> _getImagePath(String? imagePath, String profileId, profile, BuildContext context) async {
     //print(imagePath);
     if (imagePath == null || !File(imagePath).existsSync()) {
       //print('path is not null or exists: $imagePath');

@@ -88,6 +88,7 @@ class DatabaseHelper {
 
   Future<void> _initializeFilters(Database db) async {
     await db.insert('filters', {'key': 'distance', 'value': '5 mi'}, conflictAlgorithm: ConflictAlgorithm.ignore);
+    await db.insert('filters', {'key': 'biology', 'value': jsonEncode([])}, conflictAlgorithm: ConflictAlgorithm.ignore);
     await db.insert('filters', {'key': 'ageMin', 'value': '18'}, conflictAlgorithm: ConflictAlgorithm.ignore);
     await db.insert('filters', {'key': 'ageMax', 'value': '50 +'}, conflictAlgorithm: ConflictAlgorithm.ignore);
     await db.insert('filters', {'key': 'heightMin', 'value': "3' 0\""}, conflictAlgorithm: ConflictAlgorithm.ignore);
@@ -98,6 +99,8 @@ class DatabaseHelper {
     await db.insert('filters', {'key': 'tags', 'value': jsonEncode([])}, conflictAlgorithm: ConflictAlgorithm.ignore);
     await db.insert('filters', {'key': 'listSelection', 'value': jsonEncode([])}, conflictAlgorithm: ConflictAlgorithm.ignore);
     //print('DatabaseHelper: Initialized default filter values');
+  
+    await db.insert('filters', {'key': 'distanceSort', 'value': jsonEncode(['increasing'])}, conflictAlgorithm: ConflictAlgorithm.ignore);
   }
 
   // Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
@@ -761,7 +764,7 @@ class DatabaseHelper {
     }
   }
 
-  Future<List<Map<dynamic, dynamic>>> getAllOtherUserProfiles({int page = 1, int pageSize = 105}) async {
+  Future<List<Map<dynamic, dynamic>>> getAllOtherUserProfiles({int page = 1, int pageSize = 105, List<String>? sortCategories = const ['distance_increasing']}) async {
     try {
       final db = await database;
       final result = await db.query('other_user_profiles');
@@ -769,14 +772,24 @@ class DatabaseHelper {
         print('DatabaseHelper: No profiles found in other_user_profiles');
         return [];
       }
+      
+      // Get all profiles
       var profiles = result.map((row) => jsonDecode(row['profile_data'] as String) as Map<dynamic, dynamic>).toList();
       print('DatabaseHelper: Fetched ${profiles.length} profiles before filtering');
-      profiles = await applyFilters(profiles);
+      
+      // Apply filters and sort
+      print('sqlite.dart: sort categories passed to the filter sorter: $sortCategories');
+      profiles = await applyFiltersAndSort(profiles);
       print('DatabaseHelper: After filtering, ${profiles.length} profiles remain');
+      
+      // Calculate the starting and ending index of the current page
       final startIndex = (page - 1) * pageSize;
       final endIndex = startIndex + pageSize;
+      
       //print('DatabaseHelper: Returning ${profiles.sublist(startIndex, endIndex.clamp(0, profiles.length)).length} profiles for page $page (startIndex: $startIndex, endIndex: $endIndex)');
       //print('PROFILES: $profiles');
+      
+      // Select only the profiles on the current page
       return profiles.sublist(startIndex, endIndex.clamp(0, profiles.length));
     } catch (e) {
       //print('DatabaseHelper: Error reading all other user profiles: $e');
@@ -854,9 +867,9 @@ class DatabaseHelper {
         return 0;
       }
       var profiles = result.map((row) => jsonDecode(row['profile_data'] as String) as Map<dynamic, dynamic>).toList();
-      print('DatabaseHelper: Fetched ${profiles.length} profiles before filtering');
-      profiles = await applyFilters(profiles);
-      print('DatabaseHelper: After filtering, ${profiles.length} profiles remain');
+      //print('DatabaseHelper: Fetched ${profiles.length} profiles before filtering');
+      profiles = await applyFiltersAndSort(profiles);
+      //print('DatabaseHelper: After filtering, ${profiles.length} profiles remain');
       return profiles.length;
     } catch (e) {
       //print('DatabaseHelper: Error reading all other user profiles: $e');
@@ -877,9 +890,14 @@ class DatabaseHelper {
     }
   }
 
-  Future<List<Map<dynamic, dynamic>>> applyFilters(List<Map<dynamic, dynamic>> profiles) async {
+  Future<List<Map<dynamic, dynamic>>> applyFiltersAndSort(List<Map<dynamic, dynamic>> profiles) async {
+    print('\n');
+    print('\n');
     print('Applying filters');
+
+    // Get filter args
     final distanceFilter = await getFilterValue('distance') ?? '10 mi';
+    final biologyFilter = jsonDecode(await getFilterValue('biology') ?? '[]') as List;
     final ageMin = await getFilterValue('ageMin') ?? '18';
     final ageMaxRead = await getFilterValue('ageMax') ?? '100';
     final ageMax = ageMaxRead == '50 +' ? '100' : ageMaxRead;
@@ -891,36 +909,52 @@ class DatabaseHelper {
     final tags = jsonDecode(await getFilterValue('tags') ?? '[]') as List;
     final listSelections = jsonDecode(await getFilterValue('listSelection') ?? '[]') as List;
 
-    List<List> profileLists = [];
+    // Get sort args
+    final distanceSortArg = jsonDecode(await getFilterValue('distanceSort') ?? '[]') as List;
+    final ageSortArg = jsonDecode(await getFilterValue('ageSort') ?? '[]') as List;
+    final heightSortArg = jsonDecode(await getFilterValue('heightSort') ?? '[]') as List;
 
-    if (listSelections.contains('hide saved')) {  // Add the likes to the list selections so that matches with the list can be found and excluded rather than included. Matches still need to be found...
+    List<List> profileLists = []; 
+
+    // If hiding likes / dislikes / saves, add them to the list selections so that matches can be found and excluded.
+    if (listSelections.contains('hide saved')) {  
       listSelections.add('saved');
     }
-
-    if (listSelections.contains('hide likes')) {  // Add the likes to the list selections so that matches with the list can be found and excluded rather than included. Matches still need to be found...
+    if (listSelections.contains('hide likes')) {  
       listSelections.add('liked');
     }
-
-    if (listSelections.contains('hide dislikes')) {  // Add the likes to the list selections so that matches with the list can be found and excluded rather than included. Matches still need to be found...
+    if (listSelections.contains('hide dislikes')) {  
       listSelections.add('disliked');
     }
 
+    // Get the list of selected lists to filter by
     for (String listName in listSelections) {
       profileLists.add(await getProfilesInList(listName));
     }
 
-    print('selected lists: $listSelections');
-    print('got profiles in selected lists: $profileLists');
+    // print('selected lists: $listSelections');
+    // print('got profiles in selected lists: $profileLists');
 
-    // await _initializeFilters(await database);  // This should only be done when the database is created. Otherwise the users last filter selection is loaded from the sqlite settings table
+    ///// FILTER /////
     var filteredProfiles = profiles.where((profile) {
       bool matches = true;
       bool profileInList = false;
 
+      ///// FILTER /////
       if (distanceFilter != null) {
         final profileDistance = double.tryParse(profile['distance']?.replaceAll(' mi', '') ?? '0.0') ?? 0.0;
         final maxDistance = double.parse(distanceFilter.replaceAll(' mi', ''));
         matches = matches && profileDistance <= maxDistance;
+        // if (matches == false) {
+        //   print('DOES NOT MATCH distance: profileDistance: $profileDistance, maxDistance: $maxDistance');
+        // }
+      }
+
+      if (biologyFilter.isNotEmpty) {
+        matches = matches && biologyFilter.contains(profile['biology']);
+        if (matches == false) {
+          print('DOES NOT MATCH biology');
+        }
       }
 
       // Allow null or 'N/A' for age unless specific filter is set
@@ -929,6 +963,9 @@ class DatabaseHelper {
         final minAge = int.parse(ageMin);
         final maxAge = int.parse(ageMax);
         matches = matches && profileAge >= minAge && profileAge <= maxAge;
+        // if (matches == false) {
+        //   print('DOES NOT MATCH age: profileAge: $profileAge, minAge: $minAge, maxAge: $maxAge');
+        // }
       }
 
       // Allow null or 'N/A' for height unless specific filter is set
@@ -937,18 +974,37 @@ class DatabaseHelper {
         final minHeight = parseHeight(heightMin);
         final maxHeight = parseHeight(heightMax);
         matches = matches && profileHeight >= minHeight && profileHeight <= maxHeight;
+        // if (matches == false) {
+        //   print('DOES NOT MATCH height: profileHeight: $profileHeight, minHeight: $minHeight, maxHeight: $maxHeight');
+        // }
       }
 
       if (children.isNotEmpty) {
         matches = matches && children.contains(profile['children']);
+        if (matches == false) {
+          print('DOES NOT MATCH children');
+        }
       }
 
       if (relationshipIntent.isNotEmpty) {
         matches = matches && profile['relationship_intent'].any((intent) => relationshipIntent.contains(intent));
+        if (matches == false) {
+          print('DOES NOT MATCH relationship');
+        }
+      }
+
+      if (personalityTypes.isNotEmpty) {
+        matches = matches && profile['personality'].any((personality) => personality.contains(personality));
+        if (matches == false) {
+          print('DOES NOT MATCH personality');
+        }
       }
 
       if (tags.isNotEmpty) {
         matches = matches && profile['tags'].any((tag) => tags.contains(tag));
+        if (matches == false) {
+          print('DOES NOT MATCH tags');
+        }
       }
 
       if (listSelections.isNotEmpty && profileLists.any((list) => list.any((profileMap) => profileMap['name'] == profile['name'])) // This part is for displaying all profiles while any of the three lists is hidden
@@ -968,15 +1024,48 @@ class DatabaseHelper {
           if (profileInList) break; // Exit outer loop
         }
         matches = matches && profileInList;
+        if (matches == false) {
+          print('DOES NOT MATCH lists');
+        }
       }      
+
       return matches;
     }).toList();
 
-    filteredProfiles.sort((a, b) => double.parse(a['distance'] ?? '0.0').compareTo(double.parse(b['distance'] ?? '0.0')));
-    print('DatabaseHelper: Applied filters, returning ${filteredProfiles.length} profiles');
-    print(listSelections.length);
+    ///// SORT /////
+
+    ///// DISTANCE SORT /////
+    if (distanceSortArg.isNotEmpty) {
+      if (distanceSortArg[0] == 'increasing') {
+        filteredProfiles.sort((a, b) => double.parse(a['distance'] ?? '0.0').compareTo(double.parse(b['distance'] ?? '0.0')));
+      }
+      if (distanceSortArg[0] == 'decreasing') {
+        filteredProfiles.sort((a, b) => double.parse(b['distance'] ?? '0.0').compareTo(double.parse(a['distance'] ?? '0.0')));
+      }
+    }
+    
+    ///// AGE /////
+    if (ageSortArg.isNotEmpty) {
+      if (ageSortArg[0] == 'increasing') {
+        filteredProfiles.sort((a, b) => double.parse((a['age'].toString() ?? '0.0')).compareTo(double.parse(b['age'].toString() ?? '0.0')));
+      }
+      if (ageSortArg[0] == 'decreasing') {
+        filteredProfiles.sort((a, b) => double.parse((b['age'].toString() ?? '0.0')).compareTo(double.parse(a['age'].toString() ?? '0.0')));
+      }
+    }
+
+    ///// HEIGHT /////
+    if (heightSortArg.isNotEmpty) {
+      if (heightSortArg[0] == 'increasing') {
+        filteredProfiles.sort((a, b) => parseHeight(a['height']).compareTo(parseHeight(b['height'])));
+      }
+      if (heightSortArg[0] == 'decreasing') {
+        filteredProfiles.sort((a, b) => parseHeight(b['height']).compareTo(parseHeight(a['height'])));
+      }
+    }
+
     return filteredProfiles;
-  }
+  }  
 
   double parseHeight(String height) {
     try {
@@ -1221,7 +1310,7 @@ class DatabaseHelper {
         listNames.add('disliked');
       }
       
-      print('DatabaseHelper: Retrieved ${listNames.length} list names: $listNames');
+      //print('DatabaseHelper: Retrieved ${listNames.length} list names: $listNames');
       return listNames;
     } catch (e) {
       print('DatabaseHelper: Error retrieving list names: $e');
@@ -1238,7 +1327,7 @@ class DatabaseHelper {
         whereArgs: [listName],
       );
       if (result.isEmpty) {
-        print('DatabaseHelper: No profiles found in list $listName');
+        //print('DatabaseHelper: No profiles found in list $listName');
         return [];
       }
       final profiles = result.map((row) {

@@ -5,7 +5,10 @@ import 'package:integra_date/widgets/navigation_bar.dart' as navigation_bar;
 
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart'; // Generated file after Firebase setup
+import 'package:firebase_messaging/firebase_messaging.dart' as fire_mess; 
 //import 'package:firebase_app_check/firebase_app_check.dart';
+
+import 'package:shared_preferences/shared_preferences.dart' as preference; // Used to store like and message flags 
 
 import 'package:flutter/services.dart'; // Required for SystemChrome that locks app in portrait mode
 
@@ -14,6 +17,18 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:integra_date/databases/sqlite_database.dart' as sqlite;
+
+// Background message handler
+@pragma('vm:entry-point')
+Future<void> _handleBackgroundMessage(fire_mess.RemoteMessage message) async {
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  final prefs = await preference.SharedPreferences.getInstance();
+  if (message.data['type'] == 'like') {
+    int currentCount = prefs.getInt('unreadLikes') ?? 0;
+    int newCount = int.parse(message.data['count'] ?? '0');
+    await prefs.setInt('unreadLikes', currentCount + newCount);
+  }
+}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -24,12 +39,15 @@ void main() async {
   await FirebaseStorage.instance.useStorageEmulator('192.168.1.153', 9199);
   await FirebaseAuth.instance.useAuthEmulator('192.168.1.153', 9099);
 
-  // await sqlite.DatabaseHelper.instance.clearCachedImages(); //////////////////////////////////////////////////////////////////////////////////////////
-  // await sqlite.DatabaseHelper.instance.clearAllSettings(); // Clears profiles too
-  // await sqlite.DatabaseHelper.instance.deleteDatabaseFile();
+  await sqlite.DatabaseHelper.instance.clearCachedImages(); //////////////////////////////////////////////////////////////////////////////////////////
+  await sqlite.DatabaseHelper.instance.clearAllSettings(); // Clears profiles too
+  await sqlite.DatabaseHelper.instance.deleteDatabaseFile();
 
   await sqlite.DatabaseHelper.instance.setUserDocTitle('CqN9BUUjYFA');  //123 123 1231  // This is to reset the user doc title in sqlite when it is cleared
   
+  // Handle background messages 
+  fire_mess.FirebaseMessaging.onBackgroundMessage(_handleBackgroundMessage);  // Sets the function for handling background messages 
+
   SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
   ]).then((_) {

@@ -69,121 +69,118 @@ class _PaginationButtonsState extends State<PaginationButtons> {
     int selectedIndex = widget.currentPage - 1; // Track the selected index
     int indexHolder = selectedIndex;
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [
-          SizedBox(
-            width: 75,
-            child: ElevatedButton(
-              onPressed: widget.hasPreviousPage && !_nextPagePressed 
-                ? () {
-                    widget.onPreviousPage();
-                  }
-                : null,
-              style: ButtonStyle(
-                backgroundColor: widget.hasPreviousPage && !_nextPagePressed 
-                  ? WidgetStatePropertyAll(Color.fromARGB(255, 151, 160, 210))
-                  : null
-              ),
-              child: const Icon(Icons.arrow_back),
-            ),
-          ),
-
-          GestureDetector(
-            onTap: () {
-              showCupertinoModalPopup(
-                context: context,
-                barrierDismissible: true, // Allows dismissal by tapping outside
-                
-                builder: (BuildContext context) {
-                  return Container(
-                    height: 300,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.only(topLeft: Radius.circular(15), topRight: Radius.circular(15)),
-                      color: Color(0xDDFFFFFF),
-                    ),
-                    child: Padding(
-                      padding: EdgeInsetsGeometry.only(bottom: 30),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly, 
-                        children: [
-                          Expanded(
-                            child: CupertinoPicker(
-                              itemExtent: 50,
-                              scrollController: FixedExtentScrollController(initialItem: selectedIndex),
-                              onSelectedItemChanged: (int index) {
-                                setState(() {
-                                  selectedIndex = index;
-                                });
-                              },
-                              children: List<Widget>.generate(widget.filteredPageCount, (int index) {
-                                return Center(child: Text('${index + 1} of ${widget.filteredPageCount}'));
-                              }),
-                            ),
-                          ),
-                          
-                          TextButton(
-                            onPressed: () {
-                              Navigator.of(context).pop(true);
-                            },
-                            style: TextButton.styleFrom(padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8)),
-                            child: Text('Apply'),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              ).then((_) {  // Update the page with the picker selection
-                if(mounted) {
-                  setState(() {
-                    if (selectedIndex > indexHolder) {
-                      widget.onNextPage(selectedIndex + 1);
-                      _nextPagePressed = true;
-                    }
-            
-                    if (selectedIndex < indexHolder) {
-                      widget.onPreviousPage(selectedIndex + 1);
-                    }
-                  });
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      children: [
+        SizedBox(
+          width: 75,
+          child: ElevatedButton(
+            onPressed: widget.hasPreviousPage && !_nextPagePressed 
+              ? () {
+                  widget.onPreviousPage();
                 }
-              });
-            },
-            child: Container(
-              padding: EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: Color.fromARGB(255, 151, 160, 210),
-                borderRadius: BorderRadius.circular(15),
-              ),
-              child: Text('${widget.currentPage} of ${widget.filteredPageCount}', style: TextStyle(fontSize: 16)),
+              : null,
+            style: ButtonStyle(
+              backgroundColor: widget.hasPreviousPage && !_nextPagePressed 
+                ? WidgetStatePropertyAll(Color.fromARGB(255, 151, 160, 210))
+                : null
             ),
+            child: const Icon(Icons.arrow_back),
           ),
-
-          SizedBox(
-            width: 75,
-            child: (!runningRings || widget.currentPage != widget.pageCount) && (widget.pageCount != 0 || !runningRings) 
-              ? ElevatedButton(  // The next button is set up so that it can only be pressed once per build tracked by bool _nextPagePressed
-                  onPressed: widget.hasNextPage && !_nextPagePressed && !runningRings && widget.currentPage != widget.filteredPageCount || allowNextPageDuringQuery  // If there is a next page, and it has not already been pressed this build, and the rings are not running during the initial run, then allow another press of next page
-                    ? () {
-                        widget.onNextPage();
-                        setState(() {
-                          _nextPagePressed = true;
-                        });
-                      }
-                    : null,
-                  style: ButtonStyle(
-                    backgroundColor: !runningRings && widget.currentPage != widget.pageCount && widget.currentPage != widget.filteredPageCount || allowNextPageDuringQuery
-                      ? WidgetStatePropertyAll(Color.fromARGB(255, 151, 160, 210))
-                      : null
+        ),
+    
+        GestureDetector(
+          onTap: () {
+            showCupertinoModalPopup(
+              context: context,
+              barrierDismissible: true, // Allows dismissal by tapping outside
+              
+              builder: (BuildContext context) {
+                return Container(
+                  height: 300,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.only(topLeft: Radius.circular(15), topRight: Radius.circular(15)),
+                    color: Color(0xDDFFFFFF),
                   ),
-                  child: Icon(Icons.arrow_forward),
-                )
-              : Center(child: CircularProgressIndicator())
-          )
-        ],
-      ),
+                  child: Padding(
+                    padding: EdgeInsetsGeometry.only(bottom: 30),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly, 
+                      children: [
+                        Expanded(
+                          child: CupertinoPicker(
+                            itemExtent: 50,
+                            scrollController: FixedExtentScrollController(initialItem: selectedIndex),
+                            onSelectedItemChanged: (int index) {
+                              setState(() {
+                                selectedIndex = index;
+                              });
+                            },
+                            children: List<Widget>.generate(widget.filteredPageCount, (int index) {
+                              return Center(child: Text('${index + 1} of ${widget.filteredPageCount}'));
+                            }),
+                          ),
+                        ),
+                        
+                        TextButton(
+                          onPressed: () {
+                            Navigator.of(context).pop(true);
+                          },
+                          style: TextButton.styleFrom(padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8)),
+                          child: Text('Apply'),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ).then((_) {  // Update the page with the picker selection
+              if(mounted) {
+                setState(() {
+                  if (selectedIndex > indexHolder) {
+                    widget.onNextPage(selectedIndex + 1);
+                    _nextPagePressed = true;
+                  }
+          
+                  if (selectedIndex < indexHolder) {
+                    widget.onPreviousPage(selectedIndex + 1);
+                  }
+                });
+              }
+            });
+          },
+          child: Container(
+            padding: EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: Color.fromARGB(255, 151, 160, 210),
+              borderRadius: BorderRadius.circular(15),
+            ),
+            child: Text('${widget.currentPage} of ${widget.filteredPageCount}', style: TextStyle(fontSize: 16)),
+          ),
+        ),
+    
+        SizedBox(
+          width: 75,
+          child: (!runningRings || widget.currentPage != widget.pageCount) && (widget.pageCount != 0 || !runningRings) 
+            ? ElevatedButton(  // The next button is set up so that it can only be pressed once per build tracked by bool _nextPagePressed
+                onPressed: widget.hasNextPage && !_nextPagePressed && !runningRings && widget.currentPage != widget.filteredPageCount || allowNextPageDuringQuery  // If there is a next page, and it has not already been pressed this build, and the rings are not running during the initial run, then allow another press of next page
+                  ? () {
+                      widget.onNextPage();
+                      setState(() {
+                        _nextPagePressed = true;
+                      });
+                    }
+                  : null,
+                style: ButtonStyle(
+                  backgroundColor: !runningRings && widget.currentPage != widget.pageCount && widget.currentPage != widget.filteredPageCount || allowNextPageDuringQuery
+                    ? WidgetStatePropertyAll(Color.fromARGB(255, 151, 160, 210))
+                    : null
+                ),
+                child: Icon(Icons.arrow_forward),
+              )
+            : Center(child: CircularProgressIndicator())
+        )
+      ],
     );
   }
 }

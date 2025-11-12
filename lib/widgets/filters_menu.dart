@@ -28,6 +28,9 @@ class FiltersMenuState extends State<FiltersMenu> {
   bool _showDistance = false;
   bool _distanceInitialSync = false;
 
+  List<String> _biologiesSelected = [];
+  bool _showBiologies = false;
+
   String _ageMin = '18';
   String _ageMax = '25';
   bool _showAge = false;
@@ -53,7 +56,13 @@ class FiltersMenuState extends State<FiltersMenu> {
   List<String> _listsSelected = [];
   bool _showLists = false;
 
+  List<String> _distanceSort = [];
+  List<String> _ageSort = [];
+  List<String> _heightSort = [];
+  bool _showSorts = false;
+
   final List<String> _distanceOptions = ['5 mi', '10 mi', '25 mi', '50 mi', '75 mi', '100 mi', '125 mi', '150 mi', '175 mi', '200 mi'];
+  final List<String> _biologyOptions = ['male', 'female'];
   final List<String> _ageOptions = ['18', '20', '25', '30', '35', '40', '45', '50 +'];
   final List<String> _heightOptions = [
     for (int feet = 4; feet <= 7; feet++)
@@ -61,10 +70,11 @@ class FiltersMenuState extends State<FiltersMenu> {
         "$feet' ${inches.toString()}\""
   ];
   final List<String> _childrenOptions = ['has children', 'no children'];
+  final List<String> _relationshipIntentOptions = ['Casual', 'Serious', 'Open'];
   final List<String> _personalityTypes = ['Introvert', 'Extrovert', 'Ambivert'];
   final List<String> _tags = ['#fun', '#serious', '#adventurous', '#calm'];
   List<String>? _listOptions;
-  final List<String> _relationshipIntentOptions = ['Casual', 'Serious', 'Open'];
+  final List<String> _sortOptions = ['increasing', 'decreasing'];
 
   late FixedExtentScrollController _distanceController;
   late FixedExtentScrollController _ageMinController;
@@ -95,13 +105,12 @@ class FiltersMenuState extends State<FiltersMenu> {
     );
   }
 
-  Future<void> _loadListOptions() async {
-    final listNames = await sqlite.DatabaseHelper.instance.getAllListNames();
-    if (mounted) {
-      setState(() {
-        _listOptions = listNames;
-      });
-    }
+  // This is for reloading the buttons that are pressed if they are updated on the swipe page
+  // The swip page and the database page use a widget observer to detect when the page is acceseed, 
+  // and then use a sorter / filter global key to call this function and update the buttons 
+  // with the values saved in sqlite.  
+  void refresh() {  
+    loadFilterValues();
   }
 
   Future<void> loadFilterValues() async {
@@ -115,6 +124,15 @@ class FiltersMenuState extends State<FiltersMenu> {
       } catch (e) {
         //print('Error loading distance: $e');
         distance = '5 mi';
+      }
+
+      List<String> biologies = [];
+      try {
+        final biologiesValue = await db.getFilterValue('biology') ?? '[]';
+        //print('Loaded childrenValue: $childrenValue');
+        biologies = (jsonDecode(biologiesValue) as List<dynamic>).cast<String>();
+      } catch (e) {
+        //print('Error decoding children: $e');
       }
 
       String? ageMin;
@@ -201,6 +219,7 @@ class FiltersMenuState extends State<FiltersMenu> {
       if (mounted) {
         setState(() {
           _distance = distance ?? '5 mi';
+          _biologiesSelected = biologies;
           _ageMin = ageMin ?? '18';
           _ageMax = ageMax ?? '25';
           _heightMin = heightMin ?? "4' 0\"";
@@ -220,10 +239,11 @@ class FiltersMenuState extends State<FiltersMenu> {
         });
       }
     } catch (e) {
-      //print('Error loading filter values: $e');
+      print('Error loading filter values: $e');
       if (mounted) {
         setState(() {
           _distance = '5 mi';
+          _biologiesSelected = [];
           _ageMin = '18';
           _ageMax = '25';
           _heightMin = '4\' 0\"';
@@ -250,7 +270,10 @@ class FiltersMenuState extends State<FiltersMenu> {
 
   Future<void> saveAndApplyFilterValues() async {
     try {
+      // These are used to detect if only the distance filter is changed. 
+      // I don't remember why but it has something to do with efficiently loading more profiles
       final lastDistance = _distance;
+      final lastBiologies = _biologiesSelected;
       final lastAgeMin = _ageMin;
       final lastAgeMax = _ageMax;
       final lastHeightMin = _heightMin;
@@ -260,11 +283,17 @@ class FiltersMenuState extends State<FiltersMenu> {
       final lastPersonalityTypes = _personalityTypesSelected;
       final lastTags = _tagsSelected;
       final lastLists = _listsSelected;
+      final lastDistanceSort = _distanceSort;
+      final lastAgeSort = _ageSort;
+      final lastHeightSort = _heightSort;
+
 
       bool onlyDistanceChanged = false;
 
+      // Save filters to sqlite for filter persistance accross app reboots
       final db = sqlite.DatabaseHelper.instance;
       await db.setFilterValue('distance', _distance);
+      await db.setFilterValue('biology', jsonEncode(_biologiesSelected));
       await db.setFilterValue('ageMin', _ageMin);
       await db.setFilterValue('ageMax', _ageMax);
       await db.setFilterValue('heightMin', _heightMin);
@@ -274,9 +303,16 @@ class FiltersMenuState extends State<FiltersMenu> {
       await db.setFilterValue('personalityTypes', jsonEncode(_personalityTypesSelected));
       await db.setFilterValue('tags', jsonEncode(_tagsSelected));
       await db.setFilterValue('listSelection', jsonEncode(_listsSelected));
-      print('filters saved to sqlite');
 
+      await db.setFilterValue('distanceSort', jsonEncode(_distanceSort));
+      await db.setFilterValue('ageSort', jsonEncode(_ageSort));
+      await db.setFilterValue('heightSort', jsonEncode(_heightSort));
+
+      print('filters_menu.dart: filters saved to sqlite');
+
+      // Check if only distance is updated. Has something to do with efficient profile loading.
       if (lastDistance != _distance &&  // This is only true if distance is the only filter updated 
+          lastBiologies == _biologiesSelected &&
           lastAgeMin == _ageMin && 
           lastAgeMax == _ageMax && 
           lastHeightMin == _heightMin && 
@@ -285,7 +321,10 @@ class FiltersMenuState extends State<FiltersMenu> {
           lastRelationshipIntent == _relationshipIntentSelected && 
           lastPersonalityTypes == _personalityTypesSelected && 
           lastTags == _tagsSelected && 
-          lastLists == _listsSelected) {
+          lastLists == _listsSelected && 
+          lastDistanceSort == _distanceSort &&
+          lastAgeSort == _ageSort &&
+          lastHeightSort == _heightSort) {
         onlyDistanceChanged = true;
       }
 
@@ -337,6 +376,9 @@ class FiltersMenuState extends State<FiltersMenu> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
+                      
+                      ///// CLEAR AND APPLY /////
+                      
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
@@ -368,6 +410,7 @@ class FiltersMenuState extends State<FiltersMenu> {
                               // : null,
                               () {setState(() {
                                     _distance = '5 mi';
+                                    _biologiesSelected.clear();
                                     _ageMin = '18';
                                     _ageMax = '50 +';
                                     _heightMin = '4\' 0\"';
@@ -385,6 +428,11 @@ class FiltersMenuState extends State<FiltersMenu> {
                                     _distanceInitialSync = false;
                                     _ageInitialSync = false;
                                     _heightInitialSync = false;
+                                    
+                                    _distanceSort.clear();
+                                    _distanceSort.add('increasing');
+                                    _ageSort.clear();
+                                    _heightSort.clear();
                                   });
                                   saveAndApplyFilterValues();
                                   swipe_page.resetIndexAfterFiltering();
@@ -394,7 +442,7 @@ class FiltersMenuState extends State<FiltersMenu> {
                               backgroundColor: WidgetStatePropertyAll(Color(0x50FFFFFF)),
                               shape: WidgetStatePropertyAll(StadiumBorder()),
                             ),
-                            child: Text('Clear Filters'),
+                            child: Text('Clear'),
                           ),
                           TextButton(
                             onPressed: //!runningRings 
@@ -413,10 +461,11 @@ class FiltersMenuState extends State<FiltersMenu> {
                               backgroundColor: WidgetStatePropertyAll(Color(0x50FFFFFF)),
                               shape: WidgetStatePropertyAll(StadiumBorder()),
                             ),
-                            child: Text('Apply Filters'),
+                            child: Text('Apply'),
                           ),
                         ],
                       ),
+                     
                       Expanded(
                         child: ListView(
                           controller: scrollController,
@@ -480,6 +529,52 @@ class FiltersMenuState extends State<FiltersMenu> {
                                           ),
                                         ),
                                       ],
+                                    ),
+                                ],
+                              ),
+                            ),
+                            SizedBox(height: 15),
+                            // Biology filter
+                            Container(
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(10),
+                                color: Color(0x50FFFFFF),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  SizedBox(
+                                    width: double.infinity,
+                                    child: TextButton(
+                                      onPressed: () {
+                                        setState(() {
+                                          _showBiologies = !_showBiologies;
+                                        });
+                                      },
+                                      child: Text('biology', style: TextStyle(color: Color(0xFF101010))),
+                                    ),
+                                  ),
+                                  if (_showBiologies)
+                                    Wrap(
+                                      spacing: 8,
+                                      children: _biologyOptions.map((option) {
+                                        return ChoiceChip(
+                                          label: Text(option),
+                                          shape: StadiumBorder(),
+                                          selectedColor: Colors.indigo[300],
+                                          backgroundColor: Color.fromARGB(255, 151, 159, 209),
+                                          selected: _biologiesSelected.contains(option),
+                                          onSelected: (selected) {
+                                            setState(() {
+                                              if (selected && !_biologiesSelected.contains(option)) {
+                                                _biologiesSelected.add(option);
+                                              } else if (!selected && _biologiesSelected.contains(option)) {
+                                                _biologiesSelected.remove(option);
+                                              }
+                                            });
+                                          },
+                                        );
+                                      }).toList(),
                                     ),
                                 ],
                               ),
@@ -1023,7 +1118,165 @@ class FiltersMenuState extends State<FiltersMenu> {
                                           }).toList(),
                                         ),
                                     ],
-                                                                      ),
+                                  ),
+                                ],
+                              ),
+                            ),
+
+                            SizedBox(height: 15),
+                            // Sort section
+                            Container(
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(10),
+                                color: Color(0x50FFFFFF),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  SizedBox(
+                                    width: double.infinity,
+                                    child: TextButton(
+                                      onPressed: () {
+                                        setState(() {
+                                          _showSorts = !_showSorts;
+                                        });
+                                      },
+                                      child: Text('sort options', style: TextStyle(color: Color(0xFF101010))),
+                                    ),
+                                  ),
+
+                                  if (_showSorts)
+                                  ///// DISTANCE /////
+                                  Container(
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(10),
+                                      //color: Color(0x50FFFFFF),
+                                    ),
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Padding(
+                                          padding: EdgeInsets.only(left: 10),
+                                          child: Text('distance:'),
+                                        ),
+                                        Wrap(
+                                          spacing: 8,
+                                          children: _sortOptions.map((option) {
+                                            return ChoiceChip(
+                                              label: Text(option),
+                                              selected: _distanceSort.contains(option),
+                                              onSelected: (selected) {
+                                                setState(() {
+                                                  if (selected && !_distanceSort.contains(option)) {
+                                                    _ageSort.clear();
+                                                    _distanceSort.clear();
+                                                    _heightSort.clear();
+                                                    _distanceSort.add(option);
+                                                  } else if (!selected && _distanceSort.contains(option) && option != 'increasing') {
+                                                    _distanceSort.remove(option);
+                                                  }
+                                                });
+                                              },
+                                              shape: StadiumBorder(),
+                                              selectedColor: Colors.indigo[300],
+                                              backgroundColor: Color.fromARGB(255, 151, 159, 209),
+                                            );
+                                          }).toList(),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  
+                                  if (_showSorts)
+                                  SizedBox(height: 15),
+
+                                  if (_showSorts)
+                                  ///// AGE /////
+                                  Container(
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(10),
+                                      //color: Color(0x50FFFFFF),
+                                    ),
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Padding(
+                                          padding: EdgeInsets.only(left: 10),
+                                          child: Text('age:'),
+                                        ),
+                                        Wrap(
+                                          spacing: 8,
+                                          children: _sortOptions.map((option) {
+                                            return ChoiceChip(
+                                              label: Text(option),
+                                              selected: _ageSort.contains(option),
+                                              onSelected: (selected) {
+                                                setState(() {
+                                                  if (selected && !_ageSort.contains(option)) {
+                                                    _ageSort.clear();
+                                                    _distanceSort.clear();
+                                                    _heightSort.clear();
+                                                    _ageSort.add(option);
+                                                  } else if (!selected && _ageSort.contains(option)) {
+                                                    _ageSort.remove(option);
+                                                    _distanceSort.add('increasing');
+                                                  }
+                                                });
+                                              },
+                                              shape: StadiumBorder(),
+                                              selectedColor: Colors.indigo[300],
+                                              backgroundColor: Color.fromARGB(255, 151, 159, 209),
+                                            );
+                                          }).toList(),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+
+                                  if (_showSorts)
+                                  SizedBox(height: 15),
+                                  
+                                  if (_showSorts)
+                                  ///// HEIGHT /////
+                                  Container(decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(10),
+                                      //color: Color(0x50FFFFFF),
+                                    ),
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Padding(
+                                          padding: EdgeInsets.only(left: 10),
+                                          child: Text('height:'),
+                                        ),
+                                        Wrap(
+                                          spacing: 8,
+                                          children: _sortOptions.map((option) {
+                                            return ChoiceChip(
+                                              label: Text(option),
+                                              selected: _heightSort.contains(option),
+                                              onSelected: (selected) {
+                                                setState(() {
+                                                  if (selected && !_heightSort.contains(option)) {
+                                                    _ageSort.clear();
+                                                    _distanceSort.clear();
+                                                    _heightSort.clear();
+                                                    _heightSort.add(option);
+                                                  } else if (!selected && _heightSort.contains(option)) {
+                                                    _heightSort.remove(option);
+                                                    _distanceSort.add('increasing');
+                                                  }
+                                                });
+                                              },
+                                              shape: StadiumBorder(),
+                                              selectedColor: Colors.indigo[300],
+                                              backgroundColor: Color.fromARGB(255, 151, 159, 209),
+                                            );
+                                          }).toList(),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
                                 ],
                               ),
                             ),
@@ -1042,6 +1295,7 @@ class FiltersMenuState extends State<FiltersMenu> {
       if (mounted) {
         setState(() {
           _showDistance = false;
+          _showBiologies = false;
           _showAge = false;
           _showHeight = false;
           _showChildren = false;
@@ -1049,6 +1303,7 @@ class FiltersMenuState extends State<FiltersMenu> {
           _showPersonality = false;
           _showTags = false;
           _showLists = false;
+          _showSorts = false;
           _distanceInitialSync = false;
           _ageInitialSync = false;
           _heightInitialSync = false;
@@ -1059,18 +1314,19 @@ class FiltersMenuState extends State<FiltersMenu> {
 
   @override
   Widget build(BuildContext context) {
-    return TextButton(
-      onPressed: () {
-        displayFilters();
-      },
-      style: ButtonStyle(
-        backgroundColor: WidgetStatePropertyAll(Color(0xFF909090)),
-      ),
-      child: Text(
-        'Filters',
-        style: TextStyle(
-          color: Color(0xFF101010),
+    return SizedBox(
+      width: 50,
+      child: IconButton(
+        onPressed: () {
+          displayFilters();
+        },
+        style: ButtonStyle(
+          backgroundColor: WidgetStatePropertyAll(Color(0x50FFFFFF)),
+          foregroundColor: WidgetStatePropertyAll(Color(0x90000000)),
+          shape: WidgetStatePropertyAll(StadiumBorder())
+          
         ),
+        icon: Icon(Icons.filter_list_rounded),
       ),
     );
   }

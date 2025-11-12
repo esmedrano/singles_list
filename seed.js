@@ -607,6 +607,7 @@ async function seedData() {
     const tagsOptions = ['Journaling', 'Reading', 'Video Games', 'Hiking', 'Photography', 'Running'];
     const relationshipIntentOptions = ['Casual', 'Serious', 'Open'];
     const personalityOptions = ['none', 'INTP', 'ENTJ', 'ISFP', 'ESTP'];
+    const biologyOptions = ['male', 'female'];
     const childrenOptions = ['I have children', 'no children'];
     const heightOptions = [
       "4' 0\"", "4' 1\"", "4' 2\"", "4' 3\"", "4' 4\"", "4' 5\"", "4' 6\"", "4' 7\"", "4' 8\"", "4' 9\"", "4' 10\"", "4' 11\"",
@@ -653,6 +654,7 @@ async function seedData() {
         hashedId: hashedId,
         children: faker.helpers.arrayElement(childrenOptions),
         email: faker.internet.email(),
+        biology: faker.helpers.arrayElement(biologyOptions),
         age: 18 + (i % 48),
         geohash: geohash,
         height: faker.helpers.arrayElement(heightOptions),

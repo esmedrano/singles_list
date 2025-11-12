@@ -33,26 +33,25 @@ for the grid view im officially copying iphone. Shouldnt take that much longer a
 ===========
 == TODO: ==
 ===========
-- // This is good but now I need to load in all firestore image paths, get the download 
-  urls, and cache them to sqlite
-  // Then when I open the profiles I can download the images to the doc dir
+- only cache images once when drop down button is pressed
 
-- check for radii cacheing after depleting a small seed radius
+- Cache images when a profile is opened in swipe view from the list / search bar
+
+- remove background color from the top buttons row
 
 - check list of cached profiles against list of firebase profiles. Ensure no duplicates 
 
 - arange firebase profiles in order and then check against cache again
 
-- double click on banner to open in swipe view, swipe, and then it picks up at the begining of the cache instead of the     
-  location of the profile. Returning to banner view doe not load in current swipe view location
-
 - Check for unecessary page rebuilds with Widget build() print statements
   e.g. print('Swipe page building now!');
 
-- Already checking initial pagination firebase queries. Check cache pagination 
+- test loading, filtering, and sorting for profiles with empty data fields
 
-- Fix location permissions so that when per denied after two denials a button appears to take user to location settings. Also fix
-  redundant location requests. Be sure nothing works unless permissions are granted. 
+- applyFilters is running twice every time... the only problem with that is it refreshes the screen multiple times. 
+
+- list page and scroll state rebuild after the ring algo completes, it shouldn't until the user presses next page,
+  unless it is the last page already 
 
 ===========
 == BUGS: ==
@@ -79,6 +78,8 @@ for the grid view im officially copying iphone. Shouldnt take that much longer a
   update 
 
 - If rebuilt after the initial hash query and before the initial ring algo, the saveLastFirebaseProfile never runs and the ring algo ring shortener breaks. To fix consider fetching last profile from cache or just deleting cache and recaching profiles.
+
+- If you log out while querying the app crashes because you need an authenticated user to query. 
 
 =========================
 == POTENTIAL PROBLEMS: ==

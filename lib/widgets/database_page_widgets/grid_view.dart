@@ -355,31 +355,36 @@ class _BoxViewState extends State<BoxView> with TickerProviderStateMixin {
                             child: Column(
                               children: [
                                 Expanded(
-                                  child: GridView.builder(
-                                    physics: _isPinching
-                                        ? const NeverScrollableScrollPhysics()
-                                        : const AlwaysScrollableScrollPhysics(),
-                                    padding: const EdgeInsets.only(top: 30),
+                                  child: Scrollbar(
                                     controller: widget.scrollController,
-                                    itemCount: profiles.length + (widget.isLoading ? 1 : 0),
-                                    gridDelegate: _buildGridDelegate(),
-                                    itemBuilder: (context, index) {
-                                      if (index == profiles.length - 1) {
-                                        // SizedBox(height: 150);
-                                        //return const Center(child: CircularProgressIndicator());  //this blocks the last grid item////////////////////////////////////////////////
-                                      }
-                                      return AnimatedContainer(
-                                        duration: const Duration(milliseconds: 300),
-                                        curve: Curves.easeInOut,
-                                        child: ProfileGridItem(
-                                          profile: profiles[index],
-                                          gridItemWidth: gridItemWidth,
-                                          index: index,
-                                          onBannerTap: widget.switchPage,
-                                          isPinching: _isPinching,
-                                        ),
-                                      );
-                                    },
+                                    thumbVisibility: true, // Always show scrollbar
+                                    interactive: true,
+                                    child: GridView.builder(
+                                      physics: _isPinching
+                                          ? const NeverScrollableScrollPhysics()
+                                          : const AlwaysScrollableScrollPhysics(),
+                                      padding: const EdgeInsets.only(top: 30),
+                                      controller: widget.scrollController,
+                                      itemCount: profiles.length + (widget.isLoading ? 1 : 0),
+                                      gridDelegate: _buildGridDelegate(),
+                                      itemBuilder: (context, index) {
+                                        if (index == profiles.length - 1) {
+                                          // SizedBox(height: 150);
+                                          //return const Center(child: CircularProgressIndicator());  //this blocks the last grid item////////////////////////////////////////////////
+                                        }
+                                        return AnimatedContainer(
+                                          duration: const Duration(milliseconds: 300),
+                                          curve: Curves.easeInOut,
+                                          child: ProfileGridItem(
+                                            profile: profiles[index],
+                                            gridItemWidth: gridItemWidth,
+                                            index: index,
+                                            onBannerTap: widget.switchPage,
+                                            isPinching: _isPinching,
+                                          ),
+                                        );
+                                      },
+                                    ),
                                   ),
                                 ),
 

@@ -250,6 +250,7 @@ Future<List<dynamic>> runQuery(query, userLat, userLon) async{  // Run query and
           'name': data['name'],
           'phone': data['phone'],
           'age': data['age'],
+          'biology': data['biology'],
           'height': data['height'] ?? 'N/A',
           'location': 'Euless, TX',
           'geohash': data['geohash'],
@@ -597,6 +598,7 @@ Future<void> fetchProfilesInRings(int radius, centerGeohash) async{  // get ring
       for (int key in triggerHashes.keys) { // Cache the radius if trigger hash hit
         String triggerHash = triggerHashes[key]!;
         if (triggerHash == hash) {
+          print('hash hit: $hash');
           sqlite.DatabaseHelper.instance.cacheCollectedRadiusArg(key);
         } 
       }
