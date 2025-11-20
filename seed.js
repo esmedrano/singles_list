@@ -464,8 +464,8 @@ const { geohashForLocation } = require('geofire-common');
 const crypto = require('crypto');
 
 // Keep the original IP since it worked in the old script
-process.env.FIRESTORE_EMULATOR_HOST = '192.168.1.153:8080';
-process.env.FIREBASE_STORAGE_EMULATOR_HOST = '192.168.1.153:9199';
+process.env.FIRESTORE_EMULATOR_HOST = '172.20.10.2:8080';
+process.env.FIREBASE_STORAGE_EMULATOR_HOST = '172.20.10.2:9199';
 
 admin.initializeApp({
   projectId: 'integridate',
@@ -602,8 +602,8 @@ async function seedData() {
 
     const profiles = [];
     const distances = Array.from({ length: 4 }, (_, i) => (i + 1) * 5).concat(1); // [1, 5, 10, 15, 20]
-    const centerLat = 32.7366245;
-    const centerLon = -97.1076209;
+    const centerLat = 37.52741;
+    const centerLon = -122.05068;
     const tagsOptions = ['Journaling', 'Reading', 'Video Games', 'Hiking', 'Photography', 'Running'];
     const relationshipIntentOptions = ['Casual', 'Serious', 'Open'];
     const personalityOptions = ['none', 'INTP', 'ENTJ', 'ISFP', 'ESTP'];

@@ -89,12 +89,12 @@ class _NavigationBarState extends State<PageSelectBar> {
     
     // Define callback function found in notification_service.dart so that it checks data every time the flag is updated while the app is open
     notification_service.NotificationService.onNewLikeReceived = () {
-      if (mounted) setState(() => checkNewData()); // Trigger fetch and update UI
+      if (mounted) setState(() => checkNotificationData()); // Trigger fetch and update UI
     };
     
     // Check the like and message flags to see if new downloads should commence (if not logged in this happens later)
     if (loggedIn) {
-      checkNewData();  
+      checkNotificationData();  
     }
 
     setQueryDistance();  // Required to load in initial filter value as query distance
@@ -107,7 +107,7 @@ class _NavigationBarState extends State<PageSelectBar> {
     sqlite.DatabaseHelper.instance.close();
   }
 
-  Future<void> checkNewData() async {
+  Future<void> checkNotificationData() async {
     final prefs = await preference.SharedPreferences.getInstance();
     final userId = FirebaseAuth.instance.currentUser!.uid;
     final unreadLikes = prefs.getInt('unreadLikes') ?? 0;
@@ -174,7 +174,7 @@ class _NavigationBarState extends State<PageSelectBar> {
 
     if (loggedIn) {  // request notification permisions and perform initial flag check
       await notification_service.NotificationService.init();  // Request noticfication permissions 
-      checkNewData();
+      checkNotificationData();
     }
 
     if (loggedIn && permissionGranted) {
@@ -190,7 +190,9 @@ class _NavigationBarState extends State<PageSelectBar> {
     geolocator.Position position = await geolocator.Geolocator.getCurrentPosition(desiredAccuracy: geolocator.LocationAccuracy.high);  // This is why location permissions must be set before the function call.
     userLat = position.latitude;
     userLon = position.longitude;
+    print('NEW USER LOCATION: $userLat, $userLon');
     userGeohash = geohasher.encode(userLon, userLat, precision: 6);  // MAKE SURE ALL GEOHASHES ARE 6 PRECISION
+    print('NEW USER HASH: $userGeohash');
     
     Completer<List<Map<dynamic, dynamic>>> completer = Completer<List<Map<dynamic, dynamic>>>();  // completer for appending future to the profileData type for the future builders in the database page 
 

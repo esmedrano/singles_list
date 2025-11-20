@@ -16,6 +16,7 @@ import 'package:flutter/services.dart'; // Required for SystemChrome that locks 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:integra_date/databases/sqlite_database.dart' as sqlite;
 
 // Background message handler
@@ -35,9 +36,12 @@ void main() async {
 
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
-  FirebaseFirestore.instance.useFirestoreEmulator('192.168.1.153', 8080);  // library: '172.29.2.191', home: '192.168.1.153', grapevine: '10.170.1.4'
-  await FirebaseStorage.instance.useStorageEmulator('192.168.1.153', 9199);
-  await FirebaseAuth.instance.useAuthEmulator('192.168.1.153', 9099);
+  FirebaseFirestore.instance.useFirestoreEmulator('172.20.10.2', 8080);  // home: '192.168.12.222' phone: '172.20.10.2'
+  await FirebaseStorage.instance.useStorageEmulator('172.20.10.2', 9199);
+  await FirebaseAuth.instance.useAuthEmulator('172.20.10.2', 9099);
+  FirebaseFunctions.instance.useFunctionsEmulator('172.20.10.2', 5001);
+
+  // print(FirebaseFunctions.instance.);
 
   await sqlite.DatabaseHelper.instance.clearCachedImages(); //////////////////////////////////////////////////////////////////////////////////////////
   await sqlite.DatabaseHelper.instance.clearAllSettings(); // Clears profiles too

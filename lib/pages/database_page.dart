@@ -6,6 +6,8 @@ import 'package:integra_date/widgets/database_page_widgets/grid_view.dart' as gr
 // only for temp buttons
 import 'package:integra_date/databases/sqlite_database.dart' as sqlite;
 import 'package:integra_date/databases/get_firestore_profiles.dart';
+import 'package:cloud_functions/cloud_functions.dart' as fire_functions;
+import 'package:firebase_auth/firebase_auth.dart';
 
 class DatabasePage extends StatefulWidget {
   const DatabasePage({
@@ -190,6 +192,22 @@ class DatabasePageState extends State<DatabasePage> {
         //   }, 
         //   child: Text('log phone doc dir data')
         // ),
+
+        TextButton(onPressed: () async{
+          try {
+            print('Logged in as ${FirebaseAuth.instance.currentUser!.uid}');
+            final callable = fire_functions.FirebaseFunctions.instance.httpsCallable('likeUser');
+
+            // ← CORRECT: wrap the data in a Map called "data"
+            await callable({
+              'receiverId': 'CqN9BUUjYFA',      // or your own doc ID for testing
+            });
+          } catch (e) {
+            print('Functions error: $e');
+          }
+            }, 
+          child: Text('send test notification')
+        ),
         
         Expanded(
           child: isBannerView

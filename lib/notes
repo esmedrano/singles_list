@@ -81,6 +81,26 @@ for the grid view im officially copying iphone. Shouldnt take that much longer a
 
 - If you log out while querying the app crashes because you need an authenticated user to query. 
 
+- seems like deleting the account deletes the auth doc but does not delete the user doc, meaning a new account can not be created with the same phone number
+
+- infinite initial hash tests when no users found
+
+- add loading wheel when loading in initial profiles
+
+- eliminate second page rebuild after finishing ring algo
+
+- make profiles appear behind search bar in the banner view
+
+- bottom of page message tells user to increase distance radius when the current distance has not been fully loaded
+
+- after loading in ring algo profiels the page scroll position resets to the top
+
+- on first download of app the notifications permission pop up does not display unless rebuilt. The app does not fetch profiles until the permissions are allowed
+
+FATAL ERROR  FATAL ERROR  FATAL ERROR  FATAL ERROR  FATAL ERROR  FATAL ERROR  FATAL ERROR  FATAL ERROR  FATAL ERROR  
+- on first query if there are over the maximum in a large hash and 0 in the hash smaller, none are loaded. 
+FATAL ERROR  FATAL ERROR  FATAL ERROR  FATAL ERROR  FATAL ERROR  FATAL ERROR  FATAL ERROR  FATAL ERROR  FATAL ERROR  
+
 =========================
 == POTENTIAL PROBLEMS: ==
 =========================
